@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { ArrowLeft, BookOpen, Star, ChevronRight, AlertCircle, ExternalLink } from "lucide-react";
+import { ReviewSection } from "@/components/review-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +28,7 @@ interface Chapter {
   pages: number;
   publishAt: string | null;
   volume: string | null;
+  externalUrl: string | null;
 }
 
 export default function MangaPage() {
@@ -240,30 +242,60 @@ export default function MangaPage() {
                 ) : (
                   <div className="divide-y divide-border max-h-[500px] overflow-y-auto custom-scrollbar">
                     {displayedChapters.map((ch) => (
-                      <button
-                        key={ch.id}
-                        onClick={() => setLocation(`/read/${id}/${ch.id}`)}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/5 hover:border-l-2 hover:border-primary transition-all text-left group"
-                      >
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                          <span className="text-sm font-medium text-white group-hover:text-primary transition-colors">
-                            Chapter {ch.chapter ?? "?"}
-                            {ch.title && (
-                              <span className="text-muted-foreground font-normal ml-2 line-clamp-1">
-                                — {ch.title}
-                              </span>
-                            )}
-                          </span>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {ch.volume && <span>Vol. {ch.volume}</span>}
-                            {ch.pages > 0 && <span>{ch.pages} pages</span>}
-                            {ch.publishAt && (
-                              <span>{new Date(ch.publishAt).toLocaleDateString()}</span>
-                            )}
+                      ch.externalUrl ? (
+                        <a
+                          key={ch.id}
+                          href={ch.externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-between px-4 py-3 hover:bg-yellow-500/5 hover:border-l-2 hover:border-yellow-500/60 transition-all text-left group"
+                        >
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-sm font-medium text-white group-hover:text-yellow-400 transition-colors flex items-center gap-1.5">
+                              Chapter {ch.chapter ?? "?"}
+                              <ExternalLink className="w-3 h-3 text-yellow-500/70 shrink-0" />
+                              {ch.title && (
+                                <span className="text-muted-foreground font-normal line-clamp-1">
+                                  — {ch.title}
+                                </span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              {ch.volume && <span>Vol. {ch.volume}</span>}
+                              <span className="text-yellow-600/80">External</span>
+                              {ch.publishAt && (
+                                <span>{new Date(ch.publishAt).toLocaleDateString()}</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0 ml-2" />
-                      </button>
+                          <ExternalLink className="w-4 h-4 text-yellow-500/50 group-hover:text-yellow-400 shrink-0 ml-2" />
+                        </a>
+                      ) : (
+                        <button
+                          key={ch.id}
+                          onClick={() => setLocation(`/read/${id}/${ch.id}`)}
+                          className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/5 hover:border-l-2 hover:border-primary transition-all text-left group"
+                        >
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-sm font-medium text-white group-hover:text-primary transition-colors">
+                              Chapter {ch.chapter ?? "?"}
+                              {ch.title && (
+                                <span className="text-muted-foreground font-normal ml-2 line-clamp-1">
+                                  — {ch.title}
+                                </span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              {ch.volume && <span>Vol. {ch.volume}</span>}
+                              {ch.pages > 0 && <span>{ch.pages} pages</span>}
+                              {ch.publishAt && (
+                                <span>{new Date(ch.publishAt).toLocaleDateString()}</span>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0 ml-2" />
+                        </button>
+                      )
                     ))}
                     {!showAll && chapters.length > 50 && (
                       <button
@@ -276,6 +308,11 @@ export default function MangaPage() {
                   </div>
                 )}
               </div>
+
+              {/* Reviews */}
+              {id && (
+                <ReviewSection contentType="manga" contentId={id} title={manga?.title} />
+              )}
             </div>
           </div>
         )}

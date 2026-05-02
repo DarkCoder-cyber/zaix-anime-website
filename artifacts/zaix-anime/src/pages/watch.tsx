@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
 import { Share2, Heart, MessageSquare, Star, Send, Play, Tv, AlertCircle, RefreshCw } from "lucide-react";
+import { ReviewSection } from "@/components/review-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -265,6 +266,15 @@ export default function WatchPage() {
                 maxHeight="300px"
               />
             </div>
+
+            {/* Reviews */}
+            {malId > 0 && (
+              <ReviewSection
+                contentType="anime"
+                contentId={String(malId)}
+                title={anime?.title}
+              />
+            )}
           </div>
 
           {/* Sidebar */}

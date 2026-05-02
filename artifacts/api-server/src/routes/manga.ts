@@ -238,6 +238,7 @@ router.get("/manga/:id/chapters", async (req: Request, res: Response) => {
         pages: ch.attributes?.pages ?? 0,
         publishAt: ch.attributes?.publishAt ?? null,
         volume: ch.attributes?.volume ?? null,
+        externalUrl: ch.attributes?.externalUrl ?? null,
       })),
       total: data.total ?? 0,
     });
