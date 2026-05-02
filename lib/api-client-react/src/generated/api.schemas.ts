@@ -8,3 +8,39 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface RegisterBody {
+  /**
+   * @minLength 2
+   * @maxLength 30
+   */
+  username: string;
+  email: string;
+  /** @minLength 6 */
+  password: string;
+}
+
+export interface LoginBody {
+  email: string;
+  password: string;
+}
+
+export interface UserProfile {
+  id: number;
+  username: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  user: UserProfile;
+  token: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+}

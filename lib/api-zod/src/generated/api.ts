@@ -14,3 +14,55 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Register a new user
+ */
+export const registerBodyUsernameMin = 2;
+export const registerBodyUsernameMax = 30;
+
+export const registerBodyPasswordMin = 6;
+
+export const RegisterBody = zod.object({
+  username: zod
+    .string()
+    .min(registerBodyUsernameMin)
+    .max(registerBodyUsernameMax),
+  email: zod.string().email(),
+  password: zod.string().min(registerBodyPasswordMin),
+});
+
+/**
+ * @summary Login with email and password
+ */
+export const LoginBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string(),
+});
+
+export const LoginResponse = zod.object({
+  user: zod.object({
+    id: zod.number(),
+    username: zod.string(),
+    email: zod.string(),
+    createdAt: zod.coerce.date(),
+  }),
+  token: zod.string(),
+});
+
+/**
+ * @summary Logout the current user
+ */
+export const LogoutResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Get the current logged-in user
+ */
+export const GetMeResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  email: zod.string(),
+  createdAt: zod.coerce.date(),
+});

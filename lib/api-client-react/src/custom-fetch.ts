@@ -358,6 +358,14 @@ export async function customFetch<T = unknown>(
     }
   }
 
+  // Attach token from localStorage if available (e.g. for web apps without authTokenGetter)
+  if (typeof window !== "undefined" && !headers.has("authorization")) {
+    const token = localStorage.getItem("zaix_token");
+    if (token) {
+      headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
   const requestInfo = { method, url: resolveUrl(input) };
 
   const response = await fetch(input, { ...init, method, headers });

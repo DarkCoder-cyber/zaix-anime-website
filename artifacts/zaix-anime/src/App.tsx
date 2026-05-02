@@ -7,6 +7,8 @@ import Home from "@/pages/home";
 import WatchPage from "@/pages/watch";
 import { Navbar } from "@/components/navbar";
 import { ChatBot } from "@/components/chat-bot";
+import { AuthProvider } from "@/hooks/use-auth";
+import { AuthModal } from "@/components/auth-modal";
 
 const queryClient = new QueryClient();
 
@@ -27,21 +29,24 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-black">
-            <Navbar />
-            <Router />
-            <ChatBot />
-            
-            <footer className="border-t border-primary/20 bg-black py-8 mt-auto">
-              <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-                <p className="font-heading text-lg font-bold text-white mb-2">ZAIX <span className="text-primary text-shadow-neon">ANIME</span></p>
-                <p>© {new Date().getFullYear()} Zaix Anime. Stream. Binge. Discover.</p>
-              </div>
-            </footer>
-          </div>
-        </WouterRouter>
-        <Toaster />
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-black">
+              <Navbar />
+              <Router />
+              <ChatBot />
+              <AuthModal />
+              
+              <footer className="border-t border-primary/20 bg-black py-8 mt-auto">
+                <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
+                  <p className="font-heading text-lg font-bold text-white mb-2">ZAIX <span className="text-primary text-shadow-neon">ANIME</span></p>
+                  <p>© {new Date().getFullYear()} Zaix Anime. Stream. Binge. Discover.</p>
+                </div>
+              </footer>
+            </div>
+          </WouterRouter>
+          <Toaster />
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

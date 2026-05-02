@@ -1,12 +1,16 @@
 import { Link, useLocation } from "wouter";
-import { Menu, Search, User } from "lucide-react";
+import { Menu, Search, User, LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/use-auth";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [location] = useLocation();
+  const { user, isLoggedIn, logout, setModalOpen, setModalTab } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -59,12 +63,34 @@ export function Navbar() {
           </Button>
 
           <div className="hidden md:flex items-center gap-4">
-            <Button variant="ghost" className="hover:text-primary hover:bg-primary/10" data-testid="button-login">
-              Login
-            </Button>
-            <Button className="bg-primary text-black hover:bg-primary/90 shadow-neon" data-testid="button-signup">
-              Sign Up
-            </Button>
+            {isLoggedIn ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 hover:bg-primary/10 hover:text-primary" data-testid="button-user-menu">
+                    <Avatar className="h-8 w-8 border border-primary/50">
+                      <AvatarFallback className="bg-black text-primary font-heading">{user?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium" data-testid="text-username">{user?.username}</span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-black/90 backdrop-blur-xl border-primary/30">
+                  <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer" data-testid="menu-logout">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button variant="ghost" className="hover:text-primary hover:bg-primary/10" onClick={() => { setModalTab("login"); setModalOpen(true); }} data-testid="button-login">
+                  Login
+                </Button>
+                <Button className="bg-primary text-black hover:bg-primary/90 shadow-neon" onClick={() => { setModalTab("register"); setModalOpen(true); }} data-testid="button-signup">
+                  Sign Up
+                </Button>
+              </>
+            )}
           </div>
 
           <Sheet>
@@ -86,12 +112,29 @@ export function Navbar() {
                   </Link>
                 ))}
                 <div className="h-px bg-border my-4" />
-                <Button variant="outline" className="w-full justify-start" data-testid="button-mobile-login">
-                  Login
-                </Button>
-                <Button className="w-full bg-primary text-black shadow-neon justify-start" data-testid="button-mobile-signup">
-                  Sign Up
-                </Button>
+                {isLoggedIn ? (
+                  <>
+                    <div className="flex items-center gap-3 px-4 py-2 border border-primary/20 rounded-md bg-black/40">
+                      <Avatar className="h-10 w-10 border border-primary/50">
+                        <AvatarFallback className="bg-black text-primary font-heading">{user?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-lg" data-testid="text-mobile-username">{user?.username}</span>
+                    </div>
+                    <Button variant="destructive" className="w-full justify-start mt-2" onClick={() => logout()} data-testid="button-mobile-logout">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" className="w-full justify-start" onClick={() => { setModalTab("login"); setModalOpen(true); }} data-testid="button-mobile-login">
+                      Login
+                    </Button>
+                    <Button className="w-full bg-primary text-black shadow-neon justify-start" onClick={() => { setModalTab("register"); setModalOpen(true); }} data-testid="button-mobile-signup">
+                      Sign Up
+                    </Button>
+                  </>
+                )}
               </nav>
             </SheetContent>
           </Sheet>
