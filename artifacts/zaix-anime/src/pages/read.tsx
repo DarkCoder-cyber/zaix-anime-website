@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, ArrowLeft, ZoomIn, ZoomOut, AlignJustify, Columns } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, ZoomIn, ZoomOut, AlignJustify, Columns, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,42 @@ interface ChapterData {
 
 type ReadMode = "scroll" | "paginated";
 
+async function fetchChapterPages(chapterId: string, dataSaver: boolean): Promise<ChapterData> {
+  const url = `/api/manga/chapter/${chapterId}/pages?dataSaver=${dataSaver}`;
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (networkErr) {
+    throw new Error("Network error — could not reach the server. Check your connection.");
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+
+  if (!res.ok) {
+    if (isJson) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Server error ${res.status}`);
+    }
+    throw new Error(`Server returned ${res.status}. The API server may not be running.`);
+  }
+
+  if (!isJson) {
+    throw new Error(
+      `Unexpected response (${res.status}). The API proxy may not be configured — ` +
+      `make sure the API server is running on port 8080.`
+    );
+  }
+
+  const data: ChapterData = await res.json();
+
+  if (!data || typeof data.total !== "number") {
+    throw new Error("Invalid response format from chapter pages API.");
+  }
+
+  return data;
+}
+
 export default function ReadPage() {
   const { mangaId, chapterId } = useParams<{ mangaId: string; chapterId: string }>();
   const [, setLocation] = useLocation();
@@ -31,28 +67,27 @@ export default function ReadPage() {
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
+  const loadChapter = useCallback(async () => {
     if (!chapterId) return;
     setLoading(true);
     setError(null);
+    setChapterData(null);
     setLoadedImages(new Set());
     setFailedImages(new Set());
     setCurrentPage(0);
-
-    fetch(`/api/manga/chapter/${chapterId}/pages?dataSaver=${dataSaver}`)
-      .then((r) => {
-        if (!r.ok) return r.json().then((e) => Promise.reject(e.error || "Failed to load chapter"));
-        return r.json();
-      })
-      .then((data: ChapterData) => {
-        setChapterData(data);
-        setLoading(false);
-      })
-      .catch((err: string) => {
-        setError(err || "Could not load chapter pages. MangaDex may be temporarily unavailable.");
-        setLoading(false);
-      });
+    try {
+      const data = await fetchChapterPages(chapterId, dataSaver);
+      setChapterData(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load chapter pages.");
+    } finally {
+      setLoading(false);
+    }
   }, [chapterId, dataSaver]);
+
+  useEffect(() => {
+    loadChapter();
+  }, [loadChapter]);
 
   const goToPage = useCallback(
     (n: number) => {
@@ -74,9 +109,11 @@ export default function ReadPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [currentPage, goToPage, readMode]);
 
-  const progressPct = chapterData
-    ? Math.round(((currentPage + 1) / chapterData.total) * 100)
-    : 0;
+  const totalPages = chapterData?.total ?? 0;
+  const progressPct = totalPages > 0 ? Math.round(((currentPage + 1) / totalPages) * 100) : 0;
+
+  const isEmpty = !loading && !error && chapterData && chapterData.total === 0;
+  const hasContent = !loading && !error && chapterData && chapterData.total > 0;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -93,12 +130,15 @@ export default function ReadPage() {
           </Button>
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground truncate">
-              Chapter {chapterId?.slice(0, 8)}...
+              Chapter {chapterId?.slice(0, 8)}…
             </p>
-            {chapterData && (
+            {hasContent && (
               <p className="text-xs text-primary font-medium">
-                Page {currentPage + 1} / {chapterData.total}
+                Page {currentPage + 1} / {totalPages}
               </p>
+            )}
+            {isEmpty && (
+              <p className="text-xs text-yellow-400 font-medium">External Chapter</p>
             )}
           </div>
         </div>
@@ -133,7 +173,7 @@ export default function ReadPage() {
       </div>
 
       {/* Progress bar */}
-      {chapterData && (
+      {hasContent && (
         <div className="fixed top-14 left-0 right-0 z-40 h-0.5 bg-white/10">
           <div
             className="h-full bg-primary shadow-neon transition-all duration-300"
@@ -144,13 +184,16 @@ export default function ReadPage() {
 
       {/* Content */}
       <div className="pt-16 pb-24">
+
+        {/* Loading */}
         {loading && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-primary animate-pulse font-medium">Loading chapter pages...</p>
+            <p className="text-primary animate-pulse font-medium">Loading chapter pages…</p>
           </div>
         )}
 
+        {/* Error */}
         {!loading && error && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
             <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-2">
@@ -164,14 +207,7 @@ export default function ReadPage() {
             <div className="flex gap-3 mt-2">
               <Button
                 className="bg-primary text-black hover:bg-primary/90"
-                onClick={() => {
-                  setLoading(true);
-                  setError(null);
-                  fetch(`/api/manga/chapter/${chapterId}/pages?dataSaver=${dataSaver}`)
-                    .then((r) => r.json())
-                    .then((data) => { setChapterData(data); setLoading(false); })
-                    .catch((e) => { setError(e.message); setLoading(false); });
-                }}
+                onClick={loadChapter}
               >
                 Retry
               </Button>
@@ -186,9 +222,42 @@ export default function ReadPage() {
           </div>
         )}
 
-        {!loading && !error && chapterData && readMode === "scroll" && (
+        {/* Empty / External chapter */}
+        {isEmpty && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center mb-2">
+              <ExternalLink className="w-7 h-7 text-yellow-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white">External Chapter</h2>
+            <p className="text-muted-foreground max-w-md text-sm">
+              This chapter is not hosted on MangaDex — it links to an external site.
+              Try enabling <strong>Data Saver</strong> or go back and pick a different chapter.
+            </p>
+            <div className="flex gap-3 mt-2">
+              <Button
+                className="bg-primary text-black hover:bg-primary/90"
+                onClick={() => {
+                  setDataSaver(true);
+                  loadChapter();
+                }}
+              >
+                Try Data Saver
+              </Button>
+              <Button
+                variant="outline"
+                className="border-primary/30 text-primary"
+                onClick={() => setLocation(mangaId ? `/manga/${mangaId}` : "/")}
+              >
+                Back to Manga
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Scroll mode */}
+        {hasContent && readMode === "scroll" && (
           <div className="flex flex-col items-center gap-1 max-w-3xl mx-auto px-2">
-            {chapterData.pages.map((page) => (
+            {chapterData!.pages.map((page) => (
               <div key={page.index} className="w-full relative">
                 {!loadedImages.has(page.index) && !failedImages.has(page.index) && (
                   <Skeleton className="w-full aspect-[3/4] rounded" />
@@ -212,9 +281,7 @@ export default function ReadPage() {
                 <img
                   src={page.url}
                   alt={`Page ${page.index + 1}`}
-                  className={`w-full h-auto select-none ${
-                    loadedImages.has(page.index) ? "block" : "hidden"
-                  }`}
+                  className={`w-full h-auto select-none ${loadedImages.has(page.index) ? "block" : "hidden"}`}
                   loading="lazy"
                   onLoad={() => setLoadedImages((prev) => new Set(prev).add(page.index))}
                   onError={() => setFailedImages((prev) => new Set(prev).add(page.index))}
@@ -225,7 +292,8 @@ export default function ReadPage() {
           </div>
         )}
 
-        {!loading && !error && chapterData && readMode === "paginated" && (
+        {/* Paginated mode */}
+        {hasContent && readMode === "paginated" && (
           <div className="flex flex-col items-center">
             <div className="max-w-3xl w-full px-2">
               <div className="relative w-full">
@@ -247,8 +315,8 @@ export default function ReadPage() {
                   </div>
                 ) : (
                   <img
-                    key={chapterData.pages[currentPage]?.url}
-                    src={chapterData.pages[currentPage]?.url}
+                    key={chapterData!.pages[currentPage]?.url}
+                    src={chapterData!.pages[currentPage]?.url}
                     alt={`Page ${currentPage + 1}`}
                     className="w-full h-auto select-none"
                     onLoad={() => setLoadedImages((prev) => new Set(prev).add(currentPage))}
@@ -259,7 +327,6 @@ export default function ReadPage() {
               </div>
             </div>
 
-            {/* Page nav */}
             <div className="flex items-center gap-4 mt-6 pb-8">
               <Button
                 variant="outline"
@@ -271,13 +338,13 @@ export default function ReadPage() {
                 <ChevronLeft className="w-5 h-5" />
               </Button>
               <span className="text-sm font-medium tabular-nums text-white">
-                {currentPage + 1} / {chapterData.total}
+                {currentPage + 1} / {totalPages}
               </span>
               <Button
                 variant="outline"
                 size="icon"
                 className="border-primary/30 text-primary hover:bg-primary hover:text-black disabled:opacity-30"
-                disabled={currentPage === chapterData.total - 1}
+                disabled={currentPage === totalPages - 1}
                 onClick={() => goToPage(currentPage + 1)}
               >
                 <ChevronRight className="w-5 h-5" />
@@ -288,7 +355,7 @@ export default function ReadPage() {
       </div>
 
       {/* Bottom nav bar (paginated mode) */}
-      {!loading && !error && chapterData && readMode === "paginated" && (
+      {hasContent && readMode === "paginated" && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-t border-primary/20 h-14 flex items-center justify-center gap-4 px-4">
           <Button
             variant="ghost"
@@ -307,7 +374,7 @@ export default function ReadPage() {
           <Button
             variant="ghost"
             className="text-sm text-muted-foreground hover:text-primary gap-1.5"
-            disabled={currentPage === chapterData.total - 1}
+            disabled={currentPage === totalPages - 1}
             onClick={() => goToPage(currentPage + 1)}
           >
             Next <ChevronRight className="w-4 h-4" />
