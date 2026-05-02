@@ -1,58 +1,136 @@
-import { Link } from "wouter";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { AnimeCard } from "@/components/anime-card";
+import { MangaCard } from "@/components/manga-card";
 import { CATEGORIES } from "@/data/mock";
-import { useGetTrendingAnime, useGetRecentAnime, getGetTrendingAnimeQueryKey, getGetRecentAnimeQueryKey } from "@workspace/api-client-react";
+import {
+  useGetTrendingAnime, useGetRecentAnime,
+  getGetTrendingAnimeQueryKey, getGetRecentAnimeQueryKey
+} from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
 import heroBg from "@/assets/hero-bg.png";
+import { Search } from "lucide-react";
+
+type ContentTab = "anime" | "manga" | "manhwa" | "donghua";
+
+async function fetchMangaTrending(type: string) {
+  const res = await fetch(`/api/manga/trending?type=${type}&limit=16`);
+  if (!res.ok) throw new Error(`MangaDex returned ${res.status}`);
+  return res.json();
+}
+
+async function fetchDonghua() {
+  const res = await fetch(`/api/anime/search?q=donghua&limit=16`);
+  if (!res.ok) throw new Error(`Jikan returned ${res.status}`);
+  const data = await res.json();
+  // Also try fetching Chinese-produced anime
+  return data;
+}
+
+const TAB_CONFIG: { key: ContentTab; label: string; emoji: string }[] = [
+  { key: "anime", label: "Anime", emoji: "🎌" },
+  { key: "manga", label: "Manga", emoji: "📚" },
+  { key: "manhwa", label: "Manhwa", emoji: "🇰🇷" },
+  { key: "donghua", label: "Donghua", emoji: "🐉" },
+];
 
 export default function Home() {
-  const { data: trendingData, isLoading: trendingLoading } = useGetTrendingAnime({ limit: 12 }, { query: { queryKey: getGetTrendingAnimeQueryKey({ limit: 12 }) }});
-  const { data: recentData, isLoading: recentLoading } = useGetRecentAnime({ limit: 8 }, { query: { queryKey: getGetRecentAnimeQueryKey({ limit: 8 }) }});
-  
+  const [activeTab, setActiveTab] = useState<ContentTab>("anime");
+  const [, setLocation] = useLocation();
+
+  const { data: trendingData, isLoading: trendingLoading } = useGetTrendingAnime(
+    { limit: 12 }, { query: { queryKey: getGetTrendingAnimeQueryKey({ limit: 12 }) } }
+  );
+  const { data: recentData, isLoading: recentLoading } = useGetRecentAnime(
+    { limit: 8 }, { query: { queryKey: getGetRecentAnimeQueryKey({ limit: 8 }) } }
+  );
+
+  const { data: mangaData, isLoading: mangaLoading, error: mangaError } = useQuery({
+    queryKey: ["manga-trending", "manga"],
+    queryFn: () => fetchMangaTrending("manga"),
+    enabled: activeTab === "manga",
+    retry: 1,
+  });
+
+  const { data: manhwaData, isLoading: manhwaLoading, error: manhwaError } = useQuery({
+    queryKey: ["manga-trending", "manhwa"],
+    queryFn: () => fetchMangaTrending("manhwa"),
+    enabled: activeTab === "manhwa",
+    retry: 1,
+  });
+
+  const { data: donghuaData, isLoading: donghuaLoading, error: donghuaError } = useQuery({
+    queryKey: ["donghua"],
+    queryFn: fetchDonghua,
+    enabled: activeTab === "donghua",
+    retry: 1,
+  });
+
   const trendingAnime = trendingData?.data ?? [];
   const recentAnime = recentData?.data ?? [];
+  const mangaList = mangaData?.data ?? [];
+  const manhwaList = manhwaData?.data ?? [];
+  const donghuaList = donghuaData?.data ?? [];
 
   return (
     <main className="min-h-screen bg-background pb-20">
       {/* Hero Section */}
-      <section className="relative w-full h-[80vh] min-h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative w-full h-[80vh] min-h-[560px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img 
-            src={heroBg} 
-            alt="Naruto Hero Background" 
-            className="w-full h-full object-cover"
-          />
+          <img src={heroBg} alt="Hero" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
         </div>
-        
         <div className="container mx-auto px-4 z-10 text-center flex flex-col items-center mt-16">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black font-heading text-white tracking-tight mb-4 text-shadow-neon">
             ZAIX <span className="text-primary">ANIME</span>
           </h1>
           <p className="text-xl md:text-2xl text-foreground/90 font-medium mb-8 max-w-2xl text-shadow-neon">
-            Stream. Binge. Discover.
+            Stream Anime. Read Manga. Discover Manhwa.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-center w-full max-w-md">
-            <Button size="lg" className="w-full sm:w-auto bg-primary text-black hover:bg-primary/90 shadow-neon font-bold text-lg h-14 px-8" data-testid="btn-hero-browse">
-              Browse Now
+            <Button
+              size="lg"
+              className="w-full sm:w-auto bg-primary text-black hover:bg-primary/90 shadow-neon font-bold text-lg h-14 px-8"
+              onClick={() => setActiveTab("anime")}
+            >
+              Browse Anime
             </Button>
-            <Button size="lg" variant="outline" className="w-full sm:w-auto border-primary/50 text-white hover:bg-primary/10 hover:text-primary backdrop-blur-sm h-14 px-8" data-testid="btn-hero-learn">
-              Learn More
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full sm:w-auto border-primary/50 text-white hover:bg-primary/10 hover:text-primary backdrop-blur-sm h-14 px-8"
+              onClick={() => setActiveTab("manga")}
+            >
+              Read Manga
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Categories Pills */}
-      <section className="py-8 border-b border-border/50 bg-black/50 backdrop-blur-md sticky top-16 z-40">
+      {/* Content Type Tabs */}
+      <section className="py-4 border-b border-border/50 bg-black/50 backdrop-blur-md sticky top-16 z-40">
         <div className="container mx-auto px-4">
-          <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide snap-x">
-            {CATEGORIES.map((category) => (
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+            {TAB_CONFIG.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${
+                  activeTab === tab.key
+                    ? "bg-primary text-black shadow-neon"
+                    : "border border-primary/30 text-foreground/80 hover:bg-primary/10 hover:text-primary hover:border-primary"
+                }`}
+              >
+                {tab.emoji} {tab.label}
+              </button>
+            ))}
+            <div className="h-5 w-px bg-border mx-2 shrink-0" />
+            {CATEGORIES.slice(0, 5).map((category) => (
               <button
                 key={category}
-                className="whitespace-nowrap px-5 py-2 rounded-full border border-primary/30 text-sm font-medium text-foreground/80 hover:bg-primary hover:text-black hover:border-primary transition-all shadow-[0_0_10px_rgba(57,255,20,0)] hover:shadow-neon snap-center"
-                data-testid={`pill-category-${category.toLowerCase().replace(/\s+/g, '-')}`}
+                className="whitespace-nowrap px-4 py-2 rounded-full border border-white/10 text-sm text-foreground/60 hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-all"
               >
                 {category}
               </button>
@@ -61,55 +139,141 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trending Section */}
-      <section className="py-16 container mx-auto px-4">
-        <div className="flex items-center gap-3 mb-8">
-          <h2 className="text-3xl font-bold font-heading text-white flex items-center gap-2">
-            🔥 Trending Now
-          </h2>
-          <div className="h-px bg-primary/50 flex-1 shadow-neon mt-2" />
-        </div>
-        
-        <div className="flex overflow-x-auto gap-6 pb-8 snap-x -mx-4 px-4 sm:mx-0 sm:px-0 custom-scrollbar">
-          {trendingLoading ? Array.from({length: 6}).map((_, i) => (
-            <div key={i} className="w-[240px] sm:w-[280px] shrink-0">
-              <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+      {/* ===== ANIME TAB ===== */}
+      {activeTab === "anime" && (
+        <>
+          {/* Trending */}
+          <section className="py-16 container mx-auto px-4">
+            <SectionHeader title="🔥 Trending Now" />
+            <div className="flex overflow-x-auto gap-6 pb-8 snap-x -mx-4 px-4 sm:mx-0 sm:px-0 custom-scrollbar">
+              {trendingLoading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-[240px] sm:w-[280px] shrink-0">
+                      <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+                    </div>
+                  ))
+                : trendingAnime.map((anime, i) => (
+                    <div key={`trending-${anime.malId}-${i}`} className="w-[240px] sm:w-[280px] shrink-0 snap-start">
+                      <AnimeCard anime={anime} layout="trending" />
+                    </div>
+                  ))}
             </div>
-          )) : trendingAnime.map((anime, i) => (
-            <div key={`trending-${anime.malId}-${i}`} className="w-[240px] sm:w-[280px] shrink-0 snap-start">
-              <AnimeCard anime={anime} layout="trending" />
-            </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* New Releases Section */}
-      <section className="py-16 container mx-auto px-4 bg-gradient-to-b from-transparent to-primary/5 rounded-3xl mb-12">
-        <div className="flex items-center gap-3 mb-8">
-          <h2 className="text-3xl font-bold font-heading text-white flex items-center gap-2">
-            <span className="text-primary animate-pulse">✨</span> New Releases
-          </h2>
-          <div className="h-px bg-primary/50 flex-1 shadow-neon mt-2" />
-        </div>
+          {/* New Releases */}
+          <section className="py-16 container mx-auto px-4 bg-gradient-to-b from-transparent to-primary/5 rounded-3xl mb-12">
+            <SectionHeader title="✨ New Releases" />
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {recentLoading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="w-full aspect-[3/4] rounded-xl" />
+                  ))
+                : recentAnime.map((anime, i) => (
+                    <AnimeCard key={`recent-${anime.malId}-${i}`} anime={{ ...anime, isNew: true }} layout="new" />
+                  ))}
+            </div>
+          </section>
+        </>
+      )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {recentLoading ? Array.from({length: 8}).map((_, i) => (
-            <div key={i} className="w-full">
-              <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+      {/* ===== MANGA TAB ===== */}
+      {activeTab === "manga" && (
+        <section className="py-16 container mx-auto px-4">
+          <SectionHeader title="📚 Popular Manga" subtitle="Top Japanese comics from MangaDex" />
+          {mangaError ? (
+            <MangaError message="Failed to load manga from MangaDex. The service may be temporarily unavailable." />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+              {mangaLoading
+                ? Array.from({ length: 16 }).map((_, i) => (
+                    <Skeleton key={i} className="w-full aspect-[3/4] rounded-xl" />
+                  ))
+                : mangaList.map((m: any) => <MangaCard key={m.id} manga={m} />)}
             </div>
-          )) : recentAnime.map((anime, i) => (
-            <div key={`recent-${anime.malId}-${i}`}>
-              <AnimeCard anime={{...anime, isNew: true}} layout="new" />
+          )}
+        </section>
+      )}
+
+      {/* ===== MANHWA TAB ===== */}
+      {activeTab === "manhwa" && (
+        <section className="py-16 container mx-auto px-4">
+          <SectionHeader title="🇰🇷 Popular Manhwa" subtitle="Top Korean comics from MangaDex" />
+          {manhwaError ? (
+            <MangaError message="Failed to load manhwa from MangaDex. The service may be temporarily unavailable." />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+              {manhwaLoading
+                ? Array.from({ length: 16 }).map((_, i) => (
+                    <Skeleton key={i} className="w-full aspect-[3/4] rounded-xl" />
+                  ))
+                : manhwaList.map((m: any) => <MangaCard key={m.id} manga={m} />)}
             </div>
-          ))}
-        </div>
-        
-        <div className="mt-12 text-center">
-          <Button variant="outline" className="border-primary/50 text-primary hover:bg-primary/10 shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] hover:shadow-neon" data-testid="btn-view-all-new">
-            View All Releases
-          </Button>
-        </div>
-      </section>
+          )}
+        </section>
+      )}
+
+      {/* ===== DONGHUA TAB ===== */}
+      {activeTab === "donghua" && (
+        <section className="py-16 container mx-auto px-4">
+          <SectionHeader title="🐉 Donghua" subtitle="Chinese animation — streamed like anime" />
+          {donghuaError ? (
+            <MangaError message="Failed to load Donghua from the anime database. Please try again." />
+          ) : (
+            <>
+              <div className="flex overflow-x-auto gap-6 pb-8 snap-x -mx-4 px-4 sm:mx-0 sm:px-0 custom-scrollbar">
+                {donghuaLoading
+                  ? Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="w-[240px] sm:w-[280px] shrink-0">
+                        <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+                      </div>
+                    ))
+                  : donghuaList.map((anime: any, i: number) => (
+                      <div key={`donghua-${anime.malId}-${i}`} className="w-[240px] sm:w-[280px] shrink-0 snap-start">
+                        <AnimeCard anime={anime} layout="trending" />
+                      </div>
+                    ))}
+              </div>
+              {!donghuaLoading && donghuaList.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p className="text-lg mb-2">No results found.</p>
+                  <p className="text-sm">Try searching for specific donghua titles using the search bar above.</p>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
     </main>
+  );
+}
+
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="flex flex-col gap-1 mb-8">
+      <div className="flex items-center gap-3">
+        <h2 className="text-2xl sm:text-3xl font-bold font-heading text-white">{title}</h2>
+        <div className="h-px bg-primary/50 flex-1 shadow-neon mt-1" />
+      </div>
+      {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
+    </div>
+  );
+}
+
+function MangaError({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center py-16 gap-4 text-center">
+      <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+        <span className="text-3xl">⚠️</span>
+      </div>
+      <p className="text-white font-bold">Service Unavailable</p>
+      <p className="text-muted-foreground text-sm max-w-md">{message}</p>
+      <Button
+        variant="outline"
+        className="border-primary/30 text-primary hover:bg-primary/10"
+        onClick={() => window.location.reload()}
+      >
+        Retry
+      </Button>
+    </div>
   );
 }

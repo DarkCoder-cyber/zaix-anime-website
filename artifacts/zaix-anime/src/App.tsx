@@ -5,19 +5,29 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import WatchPage from "@/pages/watch";
+import MangaPage from "@/pages/manga";
+import ReadPage from "@/pages/read";
 import { Navbar } from "@/components/navbar";
 import { ChatBot } from "@/components/chat-bot";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+    },
+  },
+});
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/watch/:id" component={WatchPage} />
-      {/* Catch-all for non-existing pages (like Categories/Trending nav links) */}
+      <Route path="/manga/:id" component={MangaPage} />
+      <Route path="/read/:mangaId/:chapterId" component={ReadPage} />
       <Route path="/categories" component={Home} />
       <Route path="/trending" component={Home} />
       <Route component={NotFound} />
@@ -36,11 +46,16 @@ function App() {
               <Router />
               <ChatBot />
               <AuthModal />
-              
+
               <footer className="border-t border-primary/20 bg-black py-8 mt-auto">
                 <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-                  <p className="font-heading text-lg font-bold text-white mb-2">ZAIX <span className="text-primary text-shadow-neon">ANIME</span></p>
-                  <p>© {new Date().getFullYear()} Zaix Anime. Stream. Binge. Discover.</p>
+                  <p className="font-heading text-lg font-bold text-white mb-2">
+                    ZAIX <span className="text-primary text-shadow-neon">ANIME</span>
+                  </p>
+                  <p className="mb-1">© {new Date().getFullYear()} Zaix Anime. Stream. Binge. Discover.</p>
+                  <p className="text-xs opacity-60">
+                    Anime data by Jikan/MAL • Manga/Manhwa data by MangaDex
+                  </p>
                 </div>
               </footer>
             </div>
