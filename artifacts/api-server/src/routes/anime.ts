@@ -44,6 +44,56 @@ async function getIdMappings(malId: number): Promise<any> {
   return data;
 }
 
+// Build all provider embed URLs for a given set of IDs
+function buildProviderUrls(imdbId: string | null, malId: number, episode: number, season: number) {
+  const providers: { name: string; url: string; label: string }[] = [];
+
+  // 2embed — works with IMDB IDs for TV shows
+  if (imdbId) {
+    providers.push({
+      name: "2embed",
+      label: "2Embed",
+      url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}`,
+    });
+  }
+
+  // embed.su — works with IMDB IDs
+  if (imdbId) {
+    providers.push({
+      name: "embedsu",
+      label: "EmbedSu",
+      url: `https://embed.su/embed/tv/${imdbId}/${season}/${episode}`,
+    });
+  }
+
+  // vidsrc.xyz — alternative vidsrc that is still active
+  if (imdbId) {
+    providers.push({
+      name: "vidsrc_xyz",
+      label: "VidSrc",
+      url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}`,
+    });
+  }
+
+  // smashystream — works with IMDB
+  if (imdbId) {
+    providers.push({
+      name: "smashystream",
+      label: "SmashyStream",
+      url: `https://player.smashy.stream/tv/${imdbId}?s=${season}&e=${episode}`,
+    });
+  }
+
+  // anime-specific: aniwatchtv via AllAnime embed (MAL-based), no IMDB needed
+  providers.push({
+    name: "animepahe",
+    label: "AnimePahe",
+    url: `https://animepahe.ru/anime/${malId}`,
+  });
+
+  return providers;
+}
+
 // GET /api/anime/trending
 router.get("/anime/trending", async (req: Request, res: Response) => {
   try {
@@ -109,9 +159,6 @@ router.get("/anime/search", async (req: Request, res: Response) => {
 });
 
 // GET /api/anime/ids?malId=...
-// Returns cross-database ID mappings (imdb, anilist, kitsu, tmdb, etc.)
-// Cached for 24 hours — updated daily
-// MUST be before /:malId
 router.get("/anime/ids", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(String(req.query.malId || ""));
@@ -127,15 +174,6 @@ router.get("/anime/ids", async (req: Request, res: Response) => {
       kitsuId: mappings.kitsu ?? null,
       tmdbId: mappings.themoviedb ?? null,
       thetvdbId: mappings.thetvdb ?? null,
-      // vidsrc.to embed URLs — ready to use in an iframe
-      embedUrls: {
-        // For TV shows (most anime is TV)
-        tvShow: mappings.imdb ? `https://vidsrc.to/embed/tv/${mappings.imdb}` : null,
-        // With episode: append /{season}/{episode}
-        tvEpisode: mappings.imdb
-          ? `https://vidsrc.to/embed/tv/${mappings.imdb}/{season}/{episode}`
-          : null,
-      },
     });
   } catch (err: any) {
     req.log.error({ err }, "Failed to fetch ID mappings");
@@ -144,7 +182,7 @@ router.get("/anime/ids", async (req: Request, res: Response) => {
 });
 
 // GET /api/anime/stream?malId=...&episode=1&season=1
-// Returns the embed URL for a specific episode — ready to load in an iframe
+// Returns multiple embed URLs from different providers — ready to load in an iframe
 // MUST be before /:malId
 router.get("/anime/stream", async (req: Request, res: Response) => {
   try {
@@ -152,41 +190,36 @@ router.get("/anime/stream", async (req: Request, res: Response) => {
     const episode = parseInt(String(req.query.episode || "1"));
     const season = parseInt(String(req.query.season || "1"));
 
-    // Legacy support: if episodeId string was passed (old format), reject gracefully
-    const episodeIdStr = String(req.query.episodeId || "");
-    if (episodeIdStr && isNaN(malId)) {
-      res.status(400).json({ error: "Use malId, episode, and season parameters instead of episodeId" });
-      return;
-    }
-
     if (isNaN(malId) || malId <= 0) {
       res.status(400).json({ error: "malId is required" });
       return;
     }
 
-    const mappings = await getIdMappings(malId);
-    if (!mappings.imdb) {
-      res.status(404).json({ error: "No IMDB ID found for this anime — cannot generate embed URL" });
-      return;
+    // Try to get IMDB ID from ARM (best effort — some anime have no mapping)
+    let imdbId: string | null = null;
+    try {
+      const mappings = await getIdMappings(malId);
+      imdbId = mappings.imdb ?? null;
+    } catch {
+      // ARM lookup failed — continue with MAL-only providers
     }
 
-    const imdbId = mappings.imdb;
+    const providers = buildProviderUrls(imdbId, malId, episode, season);
 
-    // vidsrc.to supports TV shows and movies with season/episode
-    // Anime is usually "tv" type
-    const embedUrl = `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`;
-
-    // Also provide backup sources
-    const backupEmbedUrl = `https://vidsrc.pro/embed/tv/${imdbId}/${season}/${episode}`;
+    if (!providers.length) {
+      res.status(404).json({ error: "No streaming providers available for this anime" });
+      return;
+    }
 
     res.json({
       malId,
       episode,
       season,
       imdbId,
-      embedUrl,
-      backupEmbedUrl,
-      provider: "vidsrc.to",
+      // Primary embed URL (first available provider)
+      embedUrl: providers[0].url,
+      // All provider options for the frontend switcher
+      providers,
     });
   } catch (err: any) {
     req.log.error({ err }, "Failed to resolve stream embed");

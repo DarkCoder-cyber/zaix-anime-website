@@ -40,6 +40,7 @@ Express 5 REST API.
 - **Auth routes**: POST /api/auth/register, POST /api/auth/login, POST /api/auth/logout, GET /api/auth/me
 - **Auth**: JWT via `jsonwebtoken`, passwords hashed with `bcryptjs`
 - **DB Schema**: `users` table (id, username, email, password_hash, created_at)
+- **Anime streaming**: GET /api/anime/stream?malId=&episode=&season= — resolves MAL ID → IMDB ID via ARM API, returns multiple embed provider URLs (2Embed, EmbedSu, VidSrc.xyz, SmashyStream). Falls back to AnimePahe link if no IMDB mapping exists.
 
 ## Important Notes
 - Orval `api-zod` output uses `mode: "single"` (not split) to avoid barrel-index conflicts with TypeScript interfaces

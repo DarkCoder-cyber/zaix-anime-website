@@ -1,19 +1,24 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
-import { Share2, Heart, MessageSquare, Star, Send, Play, Tv, AlertCircle } from "lucide-react";
+import { Share2, Heart, MessageSquare, Star, Send, Play, Tv, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetAnimeById, useGetAnimeEpisodes, getGetAnimeByIdQueryKey, getGetAnimeEpisodesQueryKey } from "@workspace/api-client-react";
 
+interface StreamProvider {
+  name: string;
+  label: string;
+  url: string;
+}
+
 interface StreamData {
   malId: number;
   episode: number;
   season: number;
-  imdbId: string;
+  imdbId: string | null;
   embedUrl: string;
-  backupEmbedUrl: string;
-  provider: string;
+  providers: StreamProvider[];
 }
 
 export default function WatchPage() {
@@ -23,7 +28,7 @@ export default function WatchPage() {
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [streamLoading, setStreamLoading] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [useBackup, setUseBackup] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<string>("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [chatMsg, setChatMsg] = useState("");
 
@@ -39,7 +44,6 @@ export default function WatchPage() {
   const fetchStream = async (epNumber: number) => {
     setStreamLoading(true);
     setStreamError(null);
-    setUseBackup(false);
     try {
       const res = await fetch(`/api/anime/stream?malId=${malId}&episode=${epNumber}&season=1`);
       if (!res.ok) {
@@ -48,6 +52,10 @@ export default function WatchPage() {
       }
       const data: StreamData = await res.json();
       setStreamData(data);
+      // Default to the first available provider
+      if (data.providers?.length > 0) {
+        setActiveProvider(data.providers[0].name);
+      }
     } catch (err: any) {
       setStreamError(err.message || "Could not load video stream");
     } finally {
@@ -60,11 +68,8 @@ export default function WatchPage() {
     fetchStream(epNumber);
   };
 
-  const currentEmbedUrl = streamData
-    ? useBackup
-      ? streamData.backupEmbedUrl
-      : streamData.embedUrl
-    : null;
+  const currentProvider = streamData?.providers?.find(p => p.name === activeProvider) ?? streamData?.providers?.[0] ?? null;
+  const currentEmbedUrl = currentProvider?.url ?? null;
 
   return (
     <div className="min-h-screen bg-background pt-16 pb-20">
@@ -94,18 +99,19 @@ export default function WatchPage() {
                     className="border-primary/50 text-primary hover:bg-primary/10"
                     onClick={() => fetchStream(selectedEp)}
                   >
-                    Retry
+                    <RefreshCw className="w-4 h-4 mr-2" /> Retry
                   </Button>
                 </div>
               )}
 
               {!streamLoading && !streamError && currentEmbedUrl && (
                 <iframe
+                  key={currentEmbedUrl}
                   src={currentEmbedUrl}
                   className="w-full h-full"
                   allowFullScreen
                   allow="autoplay; fullscreen; picture-in-picture"
-                  referrerPolicy="origin"
+                  referrerPolicy="no-referrer-when-downgrade"
                   title={`${anime?.title || "Anime"} Episode ${selectedEp}`}
                 />
               )}
@@ -140,36 +146,30 @@ export default function WatchPage() {
               )}
             </div>
 
-            {/* Player controls bar */}
-            {streamData && !streamLoading && !streamError && (
-              <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3 -mt-2">
-                <Tv className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-sm text-muted-foreground flex-1">
-                  Streaming via <span className="text-primary font-medium">VidSrc</span>
-                  {streamData.imdbId && (
-                    <span className="ml-1 opacity-60">({streamData.imdbId})</span>
-                  )}
-                </span>
-                {!useBackup && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs border-primary/30 text-primary/80 hover:border-primary hover:text-primary"
-                    onClick={() => setUseBackup(true)}
-                  >
-                    Try Backup Source
-                  </Button>
-                )}
-                {useBackup && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs border-border text-muted-foreground hover:border-primary hover:text-primary"
-                    onClick={() => setUseBackup(false)}
-                  >
-                    Use Primary Source
-                  </Button>
-                )}
+            {/* Provider switcher bar */}
+            {streamData && !streamLoading && !streamError && streamData.providers?.length > 0 && (
+              <div className="flex flex-col gap-3 bg-card border border-border rounded-xl px-4 py-3 -mt-2">
+                <div className="flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-primary shrink-0" />
+                  <span className="text-sm text-muted-foreground">
+                    Streaming source — if one doesn't load, try another:
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {streamData.providers.map((provider) => (
+                    <button
+                      key={provider.name}
+                      onClick={() => setActiveProvider(provider.name)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                        activeProvider === provider.name
+                          ? "bg-primary text-black border-primary shadow-neon"
+                          : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"
+                      }`}
+                    >
+                      {provider.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
