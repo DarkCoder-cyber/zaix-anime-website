@@ -1,0 +1,62 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "8_QRvqsJrh-Izty56OgcJ"
+uri = "file://artifacts/zaix-anime/src/assets/hero-bg.png"
+type = "image"
+title = "naruto hero banner"
+
+[[generated]]
+id = "4IixsuNAr8tTIlIPwQse-"
+uri = "file://artifacts/zaix-anime/src/assets/aot.png"
+type = "image"
+title = "attack on titan poster"
+
+[[generated]]
+id = "H9ICCnpI1iE2a0vOTP99W"
+uri = "file://artifacts/zaix-anime/src/assets/demon-slayer.png"
+type = "image"
+title = "demon slayer poster"
+
+[[generated]]
+id = "TXnPUJ3lQ-UwQIz7oU807"
+uri = "file://artifacts/zaix-anime/src/assets/one-piece.png"
+type = "image"
+title = "one piece poster"
+
+[[generated]]
+id = "EBTVuQNw_vjPZUe-sU19A"
+uri = "file://artifacts/zaix-anime/src/assets/jujutsu-kaisen.png"
+type = "image"
+title = "jujutsu kaisen poster"
+
+[[generated]]
+id = "nphlKT1SHHLwc006wJfMH"
+uri = "file://artifacts/zaix-anime/src/assets/mha.png"
+type = "image"
+title = "my hero academia poster"
+
+[[generated]]
+id = "Mn4AHU_nAPteC0zwuoQ1S"
+uri = "file://artifacts/zaix-anime/src/assets/naruto.png"
+type = "image"
+title = "naruto poster"
+
+[[generated]]
+id = "aUm8qvwOuFNG5z5antokD"
+uri = "file://artifacts/zaix-anime/src/assets/death-note.png"
+type = "image"
+title = "death note poster"
+
+[[generated]]
+id = "yIjz31RRuWZjkYKB-X3pk"
+uri = "file://artifacts/zaix-anime/src/assets/fma.png"
+type = "image"
+title = "fma poster"
+
+[[generated]]
+id = "cMUfXZBxrt4bBn9ur1kEU"
+uri = "file://artifacts/zaix-anime/src/assets/chainsaw-man.png"
+type = "image"
+title = "chainsaw man poster"
