@@ -1,13 +1,14 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { HiAnime } from "aniwatch";
 
 const router: IRouter = Router();
-const hianime = new HiAnime.Scraper();
 
 const JIKAN_BASE = "https://api.jikan.moe/v4";
+const ARM_BASE = "https://arm.haglund.dev/api/v2";
 
 async function jikanFetch(path: string) {
-  const res = await fetch(`${JIKAN_BASE}${path}`);
+  const res = await fetch(`${JIKAN_BASE}${path}`, {
+    headers: { "User-Agent": "ZaixAnime/1.0" },
+  });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status} ${path}`);
   return res.json();
 }
@@ -27,54 +28,20 @@ function mapAnimeCard(item: any) {
   };
 }
 
-// In-memory cache: malId -> hiAnimeId (persists for process lifetime, refreshed daily via TTL)
-const hiAnimeIdCache = new Map<number, { id: string; expiresAt: number }>();
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// In-memory ID mapping cache (MAL ID → {imdbId, anilistId, ...}) — refreshed daily
+const idCache = new Map<number, { data: any; expiresAt: number }>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-async function getHiAnimeId(malId: number, title: string): Promise<string | null> {
-  const cached = hiAnimeIdCache.get(malId);
+async function getIdMappings(malId: number): Promise<any> {
+  const cached = idCache.get(malId);
   if (cached && cached.expiresAt > Date.now()) {
-    return cached.id;
+    return cached.data;
   }
-
-  try {
-    // Search HiAnime by title and find the entry with matching malID
-    const results = await hianime.search(title, 1);
-    const animes = results.animes ?? [];
-
-    // Try to match by checking episode sources which returns malID
-    // First try exact name match or pick the first result
-    let hiAnimeId: string | null = null;
-
-    for (const anime of animes.slice(0, 3)) {
-      try {
-        // Get first episode to check malID match
-        const eps = await hianime.getEpisodes(anime.id);
-        if (eps.episodes && eps.episodes.length > 0) {
-          const firstEpId = eps.episodes[0].episodeId;
-          const src = await hianime.getEpisodeSources(firstEpId, HiAnime.Servers.VidStreaming, "sub");
-          if (src.malID === malId) {
-            hiAnimeId = anime.id;
-            break;
-          }
-        }
-      } catch {
-        // continue trying
-      }
-    }
-
-    // If no exact malID match, fall back to closest name match
-    if (!hiAnimeId && animes.length > 0) {
-      hiAnimeId = animes[0].id;
-    }
-
-    if (hiAnimeId) {
-      hiAnimeIdCache.set(malId, { id: hiAnimeId, expiresAt: Date.now() + CACHE_TTL_MS });
-    }
-    return hiAnimeId;
-  } catch (err) {
-    return null;
-  }
+  const res = await fetch(`${ARM_BASE}/ids?source=myanimelist&id=${malId}`);
+  if (!res.ok) throw new Error(`ARM API error: ${res.status}`);
+  const data = await res.json();
+  idCache.set(malId, { data, expiresAt: Date.now() + CACHE_TTL });
+  return data;
 }
 
 // GET /api/anime/trending
@@ -141,122 +108,89 @@ router.get("/anime/search", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/anime/stream?episodeId=...&category=sub|dub
-// episodeId is the real HiAnime episodeId, e.g. "steinsgate-3?ep=230"
-// MUST be before /:malId route
-router.get("/anime/stream", async (req: Request, res: Response) => {
-  try {
-    const episodeId = String(req.query.episodeId || "").trim();
-    if (!episodeId) {
-      res.status(400).json({ error: "episodeId is required" });
-      return;
-    }
-
-    const category = (String(req.query.category || "sub")) as "sub" | "dub" | "raw";
-
-    // Try multiple servers in priority order
-    const servers = [
-      HiAnime.Servers.VidStreaming,
-      HiAnime.Servers.MegaCloud,
-      HiAnime.Servers.Streamtape,
-    ];
-
-    let lastErr: any = null;
-    for (const server of servers) {
-      try {
-        const data = await hianime.getEpisodeSources(episodeId, server, category);
-
-        const sources = (data.sources ?? []).map((s: any) => ({
-          url: s.url,
-          quality: s.quality || "auto",
-          isM3U8: Boolean(s.isM3U8) || String(s.url).includes(".m3u8"),
-        }));
-
-        if (!sources.length) continue;
-
-        const subtitles = (data.subtitles ?? []).map((st: any) => ({
-          url: st.url,
-          lang: st.lang,
-          default: st.default ?? false,
-        }));
-
-        res.json({
-          sources,
-          headers: data.headers ?? {},
-          subtitles,
-          episodeId,
-          server: String(server),
-          malID: data.malID ?? null,
-          anilistID: data.anilistID ?? null,
-        });
-        return;
-      } catch (err) {
-        lastErr = err;
-        continue;
-      }
-    }
-
-    req.log.error({ err: lastErr, episodeId }, "All servers failed for episode");
-    res.status(502).json({ error: "No streaming sources found. The episode may not be available." });
-  } catch (err: any) {
-    req.log.error({ err }, "Failed to fetch episode stream");
-    res.status(500).json({ error: "Failed to fetch streaming sources." });
-  }
-});
-
-// GET /api/anime/hianime-id?malId=21&title=One+Piece
-// Returns the HiAnime ID for a given MAL ID (with 24h cache)
-// MUST be before /:malId route
-router.get("/anime/hianime-id", async (req: Request, res: Response) => {
+// GET /api/anime/ids?malId=...
+// Returns cross-database ID mappings (imdb, anilist, kitsu, tmdb, etc.)
+// Cached for 24 hours — updated daily
+// MUST be before /:malId
+router.get("/anime/ids", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(String(req.query.malId || ""));
-    const title = String(req.query.title || "").trim();
-
-    if (isNaN(malId) || !title) {
-      res.status(400).json({ error: "malId and title are required" });
+    if (isNaN(malId) || malId <= 0) {
+      res.status(400).json({ error: "Valid malId is required" });
       return;
     }
-
-    const hiAnimeId = await getHiAnimeId(malId, title);
-    if (!hiAnimeId) {
-      res.status(404).json({ error: "HiAnime ID not found for this anime" });
-      return;
-    }
-
-    res.json({ malId, hiAnimeId });
+    const mappings = await getIdMappings(malId);
+    res.json({
+      malId,
+      imdbId: mappings.imdb ?? null,
+      anilistId: mappings.anilist ?? null,
+      kitsuId: mappings.kitsu ?? null,
+      tmdbId: mappings.themoviedb ?? null,
+      thetvdbId: mappings.thetvdb ?? null,
+      // vidsrc.to embed URLs — ready to use in an iframe
+      embedUrls: {
+        // For TV shows (most anime is TV)
+        tvShow: mappings.imdb ? `https://vidsrc.to/embed/tv/${mappings.imdb}` : null,
+        // With episode: append /{season}/{episode}
+        tvEpisode: mappings.imdb
+          ? `https://vidsrc.to/embed/tv/${mappings.imdb}/{season}/{episode}`
+          : null,
+      },
+    });
   } catch (err: any) {
-    req.log.error({ err }, "Failed to resolve HiAnime ID");
-    res.status(500).json({ error: "Failed to resolve HiAnime ID" });
+    req.log.error({ err }, "Failed to fetch ID mappings");
+    res.status(500).json({ error: "Could not resolve streaming IDs for this anime" });
   }
 });
 
-// GET /api/anime/hianime-episodes?hiAnimeId=steinsgate-3
-// Returns episodes with real episodeIds from HiAnime (NOT from Jikan)
-// MUST be before /:malId route
-router.get("/anime/hianime-episodes", async (req: Request, res: Response) => {
+// GET /api/anime/stream?malId=...&episode=1&season=1
+// Returns the embed URL for a specific episode — ready to load in an iframe
+// MUST be before /:malId
+router.get("/anime/stream", async (req: Request, res: Response) => {
   try {
-    const hiAnimeId = String(req.query.hiAnimeId || "").trim();
-    if (!hiAnimeId) {
-      res.status(400).json({ error: "hiAnimeId is required" });
+    const malId = parseInt(String(req.query.malId || ""));
+    const episode = parseInt(String(req.query.episode || "1"));
+    const season = parseInt(String(req.query.season || "1"));
+
+    // Legacy support: if episodeId string was passed (old format), reject gracefully
+    const episodeIdStr = String(req.query.episodeId || "");
+    if (episodeIdStr && isNaN(malId)) {
+      res.status(400).json({ error: "Use malId, episode, and season parameters instead of episodeId" });
       return;
     }
 
-    const data = await hianime.getEpisodes(hiAnimeId);
-    const episodes = (data.episodes ?? []).map((ep: any) => ({
-      number: ep.number,
-      episodeId: ep.episodeId,
-      title: ep.title ?? null,
-      isFiller: ep.isFiller ?? false,
-    }));
+    if (isNaN(malId) || malId <= 0) {
+      res.status(400).json({ error: "malId is required" });
+      return;
+    }
+
+    const mappings = await getIdMappings(malId);
+    if (!mappings.imdb) {
+      res.status(404).json({ error: "No IMDB ID found for this anime — cannot generate embed URL" });
+      return;
+    }
+
+    const imdbId = mappings.imdb;
+
+    // vidsrc.to supports TV shows and movies with season/episode
+    // Anime is usually "tv" type
+    const embedUrl = `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`;
+
+    // Also provide backup sources
+    const backupEmbedUrl = `https://vidsrc.pro/embed/tv/${imdbId}/${season}/${episode}`;
 
     res.json({
-      hiAnimeId,
-      totalEpisodes: data.totalEpisodes ?? episodes.length,
-      episodes,
+      malId,
+      episode,
+      season,
+      imdbId,
+      embedUrl,
+      backupEmbedUrl,
+      provider: "vidsrc.to",
     });
   } catch (err: any) {
-    req.log.error({ err }, "Failed to fetch HiAnime episodes");
-    res.status(500).json({ error: "Failed to fetch episodes from streaming source" });
+    req.log.error({ err }, "Failed to resolve stream embed");
+    res.status(500).json({ error: "Failed to resolve streaming embed URL" });
   }
 });
 
@@ -301,7 +235,7 @@ router.get("/anime/:malId", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/anime/:malId/episodes — Jikan episode list (titles, aired dates, filler flags)
+// GET /api/anime/:malId/episodes
 router.get("/anime/:malId/episodes", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(req.params.malId);
