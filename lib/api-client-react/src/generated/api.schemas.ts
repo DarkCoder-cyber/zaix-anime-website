@@ -44,3 +44,106 @@ export interface MessageResponse {
 export interface ErrorResponse {
   error: string;
 }
+
+export interface AnimeCard {
+  malId: number;
+  title: string;
+  image: string;
+  score?: number | null;
+  episodes?: number | null;
+  status?: string | null;
+  genres: string[];
+  synopsis?: string | null;
+  year?: number | null;
+  type?: string | null;
+}
+
+export type AnimeListResponsePagination = {
+  currentPage: number;
+  hasNextPage: boolean;
+  total: number;
+};
+
+export interface AnimeListResponse {
+  data: AnimeCard[];
+  pagination: AnimeListResponsePagination;
+}
+
+export interface AnimeDetail {
+  malId: number;
+  title: string;
+  titleEnglish?: string | null;
+  image: string;
+  trailer?: string | null;
+  score?: number | null;
+  scored_by?: number | null;
+  rank?: number | null;
+  episodes?: number | null;
+  status?: string | null;
+  aired?: string | null;
+  duration?: string | null;
+  rating?: string | null;
+  genres: string[];
+  synopsis?: string | null;
+  background?: string | null;
+  studios: string[];
+  type?: string | null;
+  year?: number | null;
+}
+
+export interface Episode {
+  malId: number;
+  number: number;
+  title?: string | null;
+  aired?: string | null;
+  score?: number | null;
+  filler: boolean;
+  recap: boolean;
+}
+
+export interface EpisodeListResponse {
+  data: Episode[];
+  total: number;
+}
+
+export interface StreamSource {
+  url: string;
+  quality: string;
+  isM3U8: boolean;
+}
+
+export type StreamResponseHeaders = { [key: string]: string };
+
+export interface StreamResponse {
+  sources: StreamSource[];
+  headers?: StreamResponseHeaders;
+  episodeId: string;
+  provider: string;
+}
+
+export type GetTrendingAnimeParams = {
+  page?: number;
+  limit?: number;
+};
+
+export type GetRecentAnimeParams = {
+  page?: number;
+  limit?: number;
+};
+
+export type SearchAnimeParams = {
+  q: string;
+  page?: number;
+};
+
+export type GetAnimeEpisodesParams = {
+  page?: number;
+};
+
+export type GetEpisodeStreamParams = {
+  /**
+   * Consumet episode ID (e.g. gogoanime episode slug)
+   */
+  episodeId: string;
+  provider?: string;
+};

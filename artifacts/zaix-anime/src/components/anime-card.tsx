@@ -4,12 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
 export interface Anime {
-  id: string;
+  malId: number;
   title: string;
   image: string;
-  episodes: number;
-  rating: number;
+  episodes?: number | null;
+  score?: number | null;
+  status?: string | null;
   genres: string[];
+  synopsis?: string | null;
+  year?: number | null;
+  type?: string | null;
   isNew?: boolean;
   releaseDate?: string;
 }
@@ -21,7 +25,7 @@ interface AnimeCardProps {
 
 export function AnimeCard({ anime, layout = "trending" }: AnimeCardProps) {
   return (
-    <Link href={`/watch/${anime.id}`} className="group block h-full focus:outline-none" data-testid={`card-anime-${anime.id}`}>
+    <Link href={`/watch/${anime.malId}`} className="group block h-full focus:outline-none" data-testid={`card-anime-${anime.malId}`}>
       <Card className="h-full bg-card border-transparent overflow-hidden transition-all duration-300 group-hover:border-primary group-hover:shadow-neon group-hover:scale-[1.02]">
         <CardContent className="p-0 relative aspect-[3/4]">
           <img
@@ -34,7 +38,7 @@ export function AnimeCard({ anime, layout = "trending" }: AnimeCardProps) {
           
           <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
             <Badge variant="secondary" className="bg-black/60 text-primary border-primary/50 backdrop-blur-sm">
-              <Star className="w-3 h-3 mr-1 fill-primary" /> {anime.rating}
+              <Star className="w-3 h-3 mr-1 fill-primary" /> {anime.score?.toFixed(1) || "N/A"}
             </Badge>
             {layout === "new" && anime.isNew && (
               <Badge className="bg-primary text-black font-bold animate-pulse-glow">NEW</Badge>
@@ -42,10 +46,17 @@ export function AnimeCard({ anime, layout = "trending" }: AnimeCardProps) {
           </div>
 
           {layout === "trending" && (
-            <div className="absolute top-2 left-2">
-              <Badge variant="outline" className="bg-black/60 border-white/20 backdrop-blur-sm text-xs">
-                EP {anime.episodes}
-              </Badge>
+            <div className="absolute top-2 left-2 flex flex-col gap-2 items-start">
+              {anime.episodes ? (
+                <Badge variant="outline" className="bg-black/60 border-white/20 backdrop-blur-sm text-xs">
+                  EP {anime.episodes}
+                </Badge>
+              ) : null}
+              {anime.type ? (
+                <Badge variant="outline" className="bg-black/60 border-primary/50 backdrop-blur-sm text-[10px] text-primary uppercase">
+                  {anime.type}
+                </Badge>
+              ) : null}
             </div>
           )}
 
@@ -68,9 +79,11 @@ export function AnimeCard({ anime, layout = "trending" }: AnimeCardProps) {
               ))}
             </div>
 
-            {layout === "new" && anime.releaseDate && (
+            {(layout === "new" && anime.releaseDate) ? (
               <p className="text-xs text-muted-foreground">{anime.releaseDate}</p>
-            )}
+            ) : anime.year ? (
+              <p className="text-xs text-muted-foreground">{anime.year}</p>
+            ) : null}
           </div>
         </CardContent>
       </Card>

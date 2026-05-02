@@ -17,12 +17,21 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AnimeDetail,
+  AnimeListResponse,
   AuthResponse,
+  EpisodeListResponse,
   ErrorResponse,
+  GetAnimeEpisodesParams,
+  GetEpisodeStreamParams,
+  GetRecentAnimeParams,
+  GetTrendingAnimeParams,
   HealthStatus,
   LoginBody,
   MessageResponse,
   RegisterBody,
+  SearchAnimeParams,
+  StreamResponse,
   UserProfile,
 } from "./api.schemas";
 
@@ -36,7 +45,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -198,7 +206,7 @@ export const useRegister = <
 };
 
 /**
- * @summary Login with email and password
+ * @summary Login
  */
 export const getLoginUrl = () => {
   return `/api/auth/login`;
@@ -261,7 +269,7 @@ export type LoginMutationBody = BodyType<LoginBody>;
 export type LoginMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Login with email and password
+ * @summary Login
  */
 export const useLogin = <
   TError = ErrorType<ErrorResponse>,
@@ -284,7 +292,7 @@ export const useLogin = <
 };
 
 /**
- * @summary Logout the current user
+ * @summary Logout
  */
 export const getLogoutUrl = () => {
   return `/api/auth/logout`;
@@ -342,7 +350,7 @@ export type LogoutMutationResult = NonNullable<
 export type LogoutMutationError = ErrorType<unknown>;
 
 /**
- * @summary Logout the current user
+ * @summary Logout
  */
 export const useLogout = <
   TError = ErrorType<unknown>,
@@ -365,7 +373,7 @@ export const useLogout = <
 };
 
 /**
- * @summary Get the current logged-in user
+ * @summary Get current user
  */
 export const getGetMeUrl = () => {
   return `/api/auth/me`;
@@ -408,7 +416,7 @@ export type GetMeQueryResult = NonNullable<Awaited<ReturnType<typeof getMe>>>;
 export type GetMeQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Get the current logged-in user
+ * @summary Get current user
  */
 
 export function useGetMe<
@@ -419,6 +427,588 @@ export function useGetMe<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get top/trending anime
+ */
+export const getGetTrendingAnimeUrl = (params?: GetTrendingAnimeParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/anime/trending?${stringifiedParams}`
+    : `/api/anime/trending`;
+};
+
+export const getTrendingAnime = async (
+  params?: GetTrendingAnimeParams,
+  options?: RequestInit,
+): Promise<AnimeListResponse> => {
+  return customFetch<AnimeListResponse>(getGetTrendingAnimeUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTrendingAnimeQueryKey = (
+  params?: GetTrendingAnimeParams,
+) => {
+  return [`/api/anime/trending`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetTrendingAnimeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTrendingAnime>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetTrendingAnimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTrendingAnime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTrendingAnimeQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTrendingAnime>>
+  > = ({ signal }) => getTrendingAnime(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTrendingAnime>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTrendingAnimeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTrendingAnime>>
+>;
+export type GetTrendingAnimeQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get top/trending anime
+ */
+
+export function useGetTrendingAnime<
+  TData = Awaited<ReturnType<typeof getTrendingAnime>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetTrendingAnimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTrendingAnime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTrendingAnimeQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get recently aired anime
+ */
+export const getGetRecentAnimeUrl = (params?: GetRecentAnimeParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/anime/recent?${stringifiedParams}`
+    : `/api/anime/recent`;
+};
+
+export const getRecentAnime = async (
+  params?: GetRecentAnimeParams,
+  options?: RequestInit,
+): Promise<AnimeListResponse> => {
+  return customFetch<AnimeListResponse>(getGetRecentAnimeUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRecentAnimeQueryKey = (params?: GetRecentAnimeParams) => {
+  return [`/api/anime/recent`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetRecentAnimeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRecentAnime>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRecentAnimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRecentAnime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRecentAnimeQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecentAnime>>> = ({
+    signal,
+  }) => getRecentAnime(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRecentAnime>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRecentAnimeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRecentAnime>>
+>;
+export type GetRecentAnimeQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get recently aired anime
+ */
+
+export function useGetRecentAnime<
+  TData = Awaited<ReturnType<typeof getRecentAnime>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRecentAnimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRecentAnime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRecentAnimeQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Search anime by title
+ */
+export const getSearchAnimeUrl = (params: SearchAnimeParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/anime/search?${stringifiedParams}`
+    : `/api/anime/search`;
+};
+
+export const searchAnime = async (
+  params: SearchAnimeParams,
+  options?: RequestInit,
+): Promise<AnimeListResponse> => {
+  return customFetch<AnimeListResponse>(getSearchAnimeUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchAnimeQueryKey = (params?: SearchAnimeParams) => {
+  return [`/api/anime/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchAnimeQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchAnime>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchAnimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchAnime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchAnimeQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchAnime>>> = ({
+    signal,
+  }) => searchAnime(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchAnime>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchAnimeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchAnime>>
+>;
+export type SearchAnimeQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Search anime by title
+ */
+
+export function useSearchAnime<
+  TData = Awaited<ReturnType<typeof searchAnime>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchAnimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchAnime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchAnimeQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get anime details by MAL ID
+ */
+export const getGetAnimeByIdUrl = (malId: number) => {
+  return `/api/anime/${malId}`;
+};
+
+export const getAnimeById = async (
+  malId: number,
+  options?: RequestInit,
+): Promise<AnimeDetail> => {
+  return customFetch<AnimeDetail>(getGetAnimeByIdUrl(malId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAnimeByIdQueryKey = (malId: number) => {
+  return [`/api/anime/${malId}`] as const;
+};
+
+export const getGetAnimeByIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnimeById>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  malId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnimeById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAnimeByIdQueryKey(malId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnimeById>>> = ({
+    signal,
+  }) => getAnimeById(malId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!malId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnimeById>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnimeByIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnimeById>>
+>;
+export type GetAnimeByIdQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get anime details by MAL ID
+ */
+
+export function useGetAnimeById<
+  TData = Awaited<ReturnType<typeof getAnimeById>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  malId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnimeById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnimeByIdQueryOptions(malId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get episode list for an anime
+ */
+export const getGetAnimeEpisodesUrl = (
+  malId: number,
+  params?: GetAnimeEpisodesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/anime/${malId}/episodes?${stringifiedParams}`
+    : `/api/anime/${malId}/episodes`;
+};
+
+export const getAnimeEpisodes = async (
+  malId: number,
+  params?: GetAnimeEpisodesParams,
+  options?: RequestInit,
+): Promise<EpisodeListResponse> => {
+  return customFetch<EpisodeListResponse>(
+    getGetAnimeEpisodesUrl(malId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAnimeEpisodesQueryKey = (
+  malId: number,
+  params?: GetAnimeEpisodesParams,
+) => {
+  return [`/api/anime/${malId}/episodes`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAnimeEpisodesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnimeEpisodes>>,
+  TError = ErrorType<unknown>,
+>(
+  malId: number,
+  params?: GetAnimeEpisodesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnimeEpisodes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAnimeEpisodesQueryKey(malId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAnimeEpisodes>>
+  > = ({ signal }) =>
+    getAnimeEpisodes(malId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!malId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnimeEpisodes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnimeEpisodesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnimeEpisodes>>
+>;
+export type GetAnimeEpisodesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get episode list for an anime
+ */
+
+export function useGetAnimeEpisodes<
+  TData = Awaited<ReturnType<typeof getAnimeEpisodes>>,
+  TError = ErrorType<unknown>,
+>(
+  malId: number,
+  params?: GetAnimeEpisodesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnimeEpisodes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnimeEpisodesQueryOptions(malId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get streaming sources for an episode
+ */
+export const getGetEpisodeStreamUrl = (params: GetEpisodeStreamParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/anime/stream?${stringifiedParams}`
+    : `/api/anime/stream`;
+};
+
+export const getEpisodeStream = async (
+  params: GetEpisodeStreamParams,
+  options?: RequestInit,
+): Promise<StreamResponse> => {
+  return customFetch<StreamResponse>(getGetEpisodeStreamUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEpisodeStreamQueryKey = (
+  params?: GetEpisodeStreamParams,
+) => {
+  return [`/api/anime/stream`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetEpisodeStreamQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEpisodeStream>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetEpisodeStreamParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEpisodeStream>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEpisodeStreamQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEpisodeStream>>
+  > = ({ signal }) => getEpisodeStream(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEpisodeStream>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEpisodeStreamQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEpisodeStream>>
+>;
+export type GetEpisodeStreamQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get streaming sources for an episode
+ */
+
+export function useGetEpisodeStream<
+  TData = Awaited<ReturnType<typeof getEpisodeStream>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetEpisodeStreamParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEpisodeStream>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEpisodeStreamQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

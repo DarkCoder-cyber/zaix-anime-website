@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -33,7 +32,7 @@ export const RegisterBody = zod.object({
 });
 
 /**
- * @summary Login with email and password
+ * @summary Login
  */
 export const LoginBody = zod.object({
   email: zod.string().email(),
@@ -51,18 +50,198 @@ export const LoginResponse = zod.object({
 });
 
 /**
- * @summary Logout the current user
+ * @summary Logout
  */
 export const LogoutResponse = zod.object({
   message: zod.string(),
 });
 
 /**
- * @summary Get the current logged-in user
+ * @summary Get current user
  */
 export const GetMeResponse = zod.object({
   id: zod.number(),
   username: zod.string(),
   email: zod.string(),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get top/trending anime
+ */
+export const getTrendingAnimeQueryPageDefault = 1;
+export const getTrendingAnimeQueryLimitDefault = 16;
+
+export const GetTrendingAnimeQueryParams = zod.object({
+  page: zod.coerce.number().default(getTrendingAnimeQueryPageDefault),
+  limit: zod.coerce.number().default(getTrendingAnimeQueryLimitDefault),
+});
+
+export const GetTrendingAnimeResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      malId: zod.number(),
+      title: zod.string(),
+      image: zod.string(),
+      score: zod.number().nullish(),
+      episodes: zod.number().nullish(),
+      status: zod.string().nullish(),
+      genres: zod.array(zod.string()),
+      synopsis: zod.string().nullish(),
+      year: zod.number().nullish(),
+      type: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    currentPage: zod.number(),
+    hasNextPage: zod.boolean(),
+    total: zod.number(),
+  }),
+});
+
+/**
+ * @summary Get recently aired anime
+ */
+export const getRecentAnimeQueryPageDefault = 1;
+export const getRecentAnimeQueryLimitDefault = 16;
+
+export const GetRecentAnimeQueryParams = zod.object({
+  page: zod.coerce.number().default(getRecentAnimeQueryPageDefault),
+  limit: zod.coerce.number().default(getRecentAnimeQueryLimitDefault),
+});
+
+export const GetRecentAnimeResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      malId: zod.number(),
+      title: zod.string(),
+      image: zod.string(),
+      score: zod.number().nullish(),
+      episodes: zod.number().nullish(),
+      status: zod.string().nullish(),
+      genres: zod.array(zod.string()),
+      synopsis: zod.string().nullish(),
+      year: zod.number().nullish(),
+      type: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    currentPage: zod.number(),
+    hasNextPage: zod.boolean(),
+    total: zod.number(),
+  }),
+});
+
+/**
+ * @summary Search anime by title
+ */
+export const searchAnimeQueryPageDefault = 1;
+
+export const SearchAnimeQueryParams = zod.object({
+  q: zod.coerce.string(),
+  page: zod.coerce.number().default(searchAnimeQueryPageDefault),
+});
+
+export const SearchAnimeResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      malId: zod.number(),
+      title: zod.string(),
+      image: zod.string(),
+      score: zod.number().nullish(),
+      episodes: zod.number().nullish(),
+      status: zod.string().nullish(),
+      genres: zod.array(zod.string()),
+      synopsis: zod.string().nullish(),
+      year: zod.number().nullish(),
+      type: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    currentPage: zod.number(),
+    hasNextPage: zod.boolean(),
+    total: zod.number(),
+  }),
+});
+
+/**
+ * @summary Get anime details by MAL ID
+ */
+export const GetAnimeByIdParams = zod.object({
+  malId: zod.coerce.number(),
+});
+
+export const GetAnimeByIdResponse = zod.object({
+  malId: zod.number(),
+  title: zod.string(),
+  titleEnglish: zod.string().nullish(),
+  image: zod.string(),
+  trailer: zod.string().nullish(),
+  score: zod.number().nullish(),
+  scored_by: zod.number().nullish(),
+  rank: zod.number().nullish(),
+  episodes: zod.number().nullish(),
+  status: zod.string().nullish(),
+  aired: zod.string().nullish(),
+  duration: zod.string().nullish(),
+  rating: zod.string().nullish(),
+  genres: zod.array(zod.string()),
+  synopsis: zod.string().nullish(),
+  background: zod.string().nullish(),
+  studios: zod.array(zod.string()),
+  type: zod.string().nullish(),
+  year: zod.number().nullish(),
+});
+
+/**
+ * @summary Get episode list for an anime
+ */
+export const GetAnimeEpisodesParams = zod.object({
+  malId: zod.coerce.number(),
+});
+
+export const getAnimeEpisodesQueryPageDefault = 1;
+
+export const GetAnimeEpisodesQueryParams = zod.object({
+  page: zod.coerce.number().default(getAnimeEpisodesQueryPageDefault),
+});
+
+export const GetAnimeEpisodesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      malId: zod.number(),
+      number: zod.number(),
+      title: zod.string().nullish(),
+      aired: zod.string().nullish(),
+      score: zod.number().nullish(),
+      filler: zod.boolean(),
+      recap: zod.boolean(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Get streaming sources for an episode
+ */
+export const getEpisodeStreamQueryProviderDefault = `gogoanime`;
+
+export const GetEpisodeStreamQueryParams = zod.object({
+  episodeId: zod.coerce
+    .string()
+    .describe("Consumet episode ID (e.g. gogoanime episode slug)"),
+  provider: zod.coerce.string().default(getEpisodeStreamQueryProviderDefault),
+});
+
+export const GetEpisodeStreamResponse = zod.object({
+  sources: zod.array(
+    zod.object({
+      url: zod.string(),
+      quality: zod.string(),
+      isM3U8: zod.boolean(),
+    }),
+  ),
+  headers: zod.record(zod.string(), zod.string()).optional(),
+  episodeId: zod.string(),
+  provider: zod.string(),
 });

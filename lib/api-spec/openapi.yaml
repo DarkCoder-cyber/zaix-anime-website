@@ -12,13 +12,14 @@ tags:
     description: Health operations
   - name: auth
     description: Authentication operations
+  - name: anime
+    description: Anime data and streaming
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -39,7 +40,7 @@ paths:
               $ref: "#/components/schemas/RegisterBody"
       responses:
         "201":
-          description: User created successfully
+          description: User created
           content:
             application/json:
               schema:
@@ -60,7 +61,7 @@ paths:
     post:
       operationId: login
       tags: [auth]
-      summary: Login with email and password
+      summary: Login
       requestBody:
         required: true
         content:
@@ -69,7 +70,7 @@ paths:
               $ref: "#/components/schemas/LoginBody"
       responses:
         "200":
-          description: Login successful
+          description: OK
           content:
             application/json:
               schema:
@@ -90,10 +91,10 @@ paths:
     post:
       operationId: logout
       tags: [auth]
-      summary: Logout the current user
+      summary: Logout
       responses:
         "200":
-          description: Logged out
+          description: OK
           content:
             application/json:
               schema:
@@ -102,16 +103,162 @@ paths:
     get:
       operationId: getMe
       tags: [auth]
-      summary: Get the current logged-in user
+      summary: Get current user
       responses:
         "200":
-          description: Current user
+          description: OK
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
         "401":
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /anime/trending:
+    get:
+      operationId: getTrendingAnime
+      tags: [anime]
+      summary: Get top/trending anime
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 16
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimeListResponse"
+  /anime/recent:
+    get:
+      operationId: getRecentAnime
+      tags: [anime]
+      summary: Get recently aired anime
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 16
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimeListResponse"
+  /anime/search:
+    get:
+      operationId: searchAnime
+      tags: [anime]
+      summary: Search anime by title
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimeListResponse"
+  /anime/{malId}:
+    get:
+      operationId: getAnimeById
+      tags: [anime]
+      summary: Get anime details by MAL ID
+      parameters:
+        - name: malId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimeDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /anime/{malId}/episodes:
+    get:
+      operationId: getAnimeEpisodes
+      tags: [anime]
+      summary: Get episode list for an anime
+      parameters:
+        - name: malId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeListResponse"
+  /anime/stream:
+    get:
+      operationId: getEpisodeStream
+      tags: [anime]
+      summary: Get streaming sources for an episode
+      parameters:
+        - name: episodeId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Consumet episode ID (e.g. gogoanime episode slug)
+        - name: provider
+          in: query
+          schema:
+            type: string
+            default: gogoanime
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamResponse"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -123,8 +270,7 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
     RegisterBody:
       type: object
       properties:
@@ -138,10 +284,7 @@ components:
         password:
           type: string
           minLength: 6
-      required:
-        - username
-        - email
-        - password
+      required: [username, email, password]
     LoginBody:
       type: object
       properties:
@@ -150,9 +293,7 @@ components:
           format: email
         password:
           type: string
-      required:
-        - email
-        - password
+      required: [email, password]
     UserProfile:
       type: object
       properties:
@@ -165,11 +306,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - username
-        - email
-        - createdAt
+      required: [id, username, email, createdAt]
     AuthResponse:
       type: object
       properties:
@@ -177,20 +314,183 @@ components:
           $ref: "#/components/schemas/UserProfile"
         token:
           type: string
-      required:
-        - user
-        - token
+      required: [user, token]
     MessageResponse:
       type: object
       properties:
         message:
           type: string
-      required:
-        - message
+      required: [message]
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
+    AnimeCard:
+      type: object
+      properties:
+        malId:
+          type: integer
+        title:
+          type: string
+        image:
+          type: string
+        score:
+          type: number
+          nullable: true
+        episodes:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        genres:
+          type: array
+          items:
+            type: string
+        synopsis:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        type:
+          type: string
+          nullable: true
+      required: [malId, title, image, genres]
+    AnimeListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnimeCard"
+        pagination:
+          type: object
+          properties:
+            currentPage:
+              type: integer
+            hasNextPage:
+              type: boolean
+            total:
+              type: integer
+          required: [currentPage, hasNextPage, total]
+      required: [data, pagination]
+    AnimeDetail:
+      type: object
+      properties:
+        malId:
+          type: integer
+        title:
+          type: string
+        titleEnglish:
+          type: string
+          nullable: true
+        image:
+          type: string
+        trailer:
+          type: string
+          nullable: true
+        score:
+          type: number
+          nullable: true
+        scored_by:
+          type: integer
+          nullable: true
+        rank:
+          type: integer
+          nullable: true
+        episodes:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        aired:
+          type: string
+          nullable: true
+        duration:
+          type: string
+          nullable: true
+        rating:
+          type: string
+          nullable: true
+        genres:
+          type: array
+          items:
+            type: string
+        synopsis:
+          type: string
+          nullable: true
+        background:
+          type: string
+          nullable: true
+        studios:
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+      required: [malId, title, image, genres, studios]
+    Episode:
+      type: object
+      properties:
+        malId:
+          type: integer
+        number:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        aired:
+          type: string
+          nullable: true
+        score:
+          type: number
+          nullable: true
+        filler:
+          type: boolean
+        recap:
+          type: boolean
+      required: [malId, number, filler, recap]
+    EpisodeListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+        total:
+          type: integer
+      required: [data, total]
+    StreamSource:
+      type: object
+      properties:
+        url:
+          type: string
+        quality:
+          type: string
+        isM3U8:
+          type: boolean
+      required: [url, quality, isM3U8]
+    StreamResponse:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/StreamSource"
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        episodeId:
+          type: string
+        provider:
+          type: string
+      required: [sources, episodeId, provider]

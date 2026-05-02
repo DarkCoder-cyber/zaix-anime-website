@@ -1,10 +1,18 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { AnimeCard } from "@/components/anime-card";
-import { TRENDING_ANIME, NEW_RELEASES, CATEGORIES } from "@/data/mock";
+import { CATEGORIES } from "@/data/mock";
+import { useGetTrendingAnime, useGetRecentAnime, getGetTrendingAnimeQueryKey, getGetRecentAnimeQueryKey } from "@workspace/api-client-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import heroBg from "@/assets/hero-bg.png";
 
 export default function Home() {
+  const { data: trendingData, isLoading: trendingLoading } = useGetTrendingAnime({ limit: 12 }, { query: { queryKey: getGetTrendingAnimeQueryKey({ limit: 12 }) }});
+  const { data: recentData, isLoading: recentLoading } = useGetRecentAnime({ limit: 8 }, { query: { queryKey: getGetRecentAnimeQueryKey({ limit: 8 }) }});
+  
+  const trendingAnime = trendingData?.data ?? [];
+  const recentAnime = recentData?.data ?? [];
+
   return (
     <main className="min-h-screen bg-background pb-20">
       {/* Hero Section */}
@@ -63,8 +71,12 @@ export default function Home() {
         </div>
         
         <div className="flex overflow-x-auto gap-6 pb-8 snap-x -mx-4 px-4 sm:mx-0 sm:px-0 custom-scrollbar">
-          {TRENDING_ANIME.map((anime) => (
-            <div key={anime.id} className="w-[240px] sm:w-[280px] shrink-0 snap-start">
+          {trendingLoading ? Array.from({length: 6}).map((_, i) => (
+            <div key={i} className="w-[240px] sm:w-[280px] shrink-0">
+              <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+            </div>
+          )) : trendingAnime.map((anime, i) => (
+            <div key={`trending-${anime.malId}-${i}`} className="w-[240px] sm:w-[280px] shrink-0 snap-start">
               <AnimeCard anime={anime} layout="trending" />
             </div>
           ))}
@@ -81,9 +93,13 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {NEW_RELEASES.map((anime) => (
-            <div key={anime.id}>
-              <AnimeCard anime={anime} layout="new" />
+          {recentLoading ? Array.from({length: 8}).map((_, i) => (
+            <div key={i} className="w-full">
+              <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+            </div>
+          )) : recentAnime.map((anime, i) => (
+            <div key={`recent-${anime.malId}-${i}`}>
+              <AnimeCard anime={{...anime, isNew: true}} layout="new" />
             </div>
           ))}
         </div>
