@@ -2,9 +2,22 @@ import { Router, type IRouter, type Request, type Response } from "express";
 
 const router: IRouter = Router();
 const MANGADEX_BASE = "https://api.mangadex.org";
+const ALLOWED_IMAGE_HOSTS = [
+  "uploads.mangadex.org",
+  "mangadex.network",
+  "s5.mangadex.org",
+];
+
+function proxyImageUrl(directUrl: string): string {
+  return `/api/proxy/image?url=${encodeURIComponent(directUrl)}`;
+}
 
 function getCoverUrl(mangaId: string, coverFilename: string): string {
-  return `https://uploads.mangadex.org/covers/${mangaId}/${coverFilename}.512.jpg`;
+  // MangaDex cover format: uploads.mangadex.org/covers/{mangaId}/{filename}
+  // Thumbnail: append .256.jpg or .512.jpg to the full filename (e.g. "cover.jpg.512.jpg")
+  // This IS the correct MangaDex thumbnail format per their API docs.
+  const directUrl = `https://uploads.mangadex.org/covers/${mangaId}/${coverFilename}.512.jpg`;
+  return proxyImageUrl(directUrl);
 }
 
 function mapManga(manga: any) {
@@ -54,12 +67,77 @@ function mapManga(manga: any) {
 
 async function mdFetch(path: string) {
   const res = await fetch(`${MANGADEX_BASE}${path}`, {
-    headers: { "User-Agent": "ZaixAnime/1.0" },
+    headers: {
+      "User-Agent": "ZaixAnime/1.0",
+      "Referer": "https://mangadex.org/",
+    },
   });
   if (!res.ok) throw new Error(`MangaDex API error: ${res.status} ${path}`);
   return res.json();
 }
 
+// ─── Image Proxy ────────────────────────────────────────────────────────────
+// GET /api/proxy/image?url=...
+// Proxies MangaDex CDN images, adding the required Referer header that
+// browsers cannot set on <img> tags (otherwise CDN returns 403/404).
+router.get("/proxy/image", async (req: Request, res: Response) => {
+  const rawUrl = String(req.query.url || "").trim();
+
+  if (!rawUrl) {
+    res.status(400).json({ error: "url parameter is required" });
+    return;
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    res.status(400).json({ error: "Invalid URL" });
+    return;
+  }
+
+  const isAllowed = ALLOWED_IMAGE_HOSTS.some(
+    (host) => parsedUrl.hostname === host || parsedUrl.hostname.endsWith(`.${host}`)
+  );
+  if (!isAllowed) {
+    res.status(403).json({ error: "Host not allowed" });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(rawUrl, {
+      headers: {
+        "Referer": "https://mangadex.org/",
+        "Origin": "https://mangadex.org",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Sec-Fetch-Dest": "image",
+        "Sec-Fetch-Mode": "no-cors",
+        "Sec-Fetch-Site": "same-site",
+      },
+    });
+
+    if (!upstream.ok) {
+      res.status(upstream.status).end();
+      return;
+    }
+
+    const contentType = upstream.headers.get("content-type") || "image/jpeg";
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+
+    res.set("Content-Type", contentType);
+    res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600");
+    res.set("Content-Length", String(buffer.length));
+    res.send(buffer);
+  } catch (err: any) {
+    req.log.error({ err, url: rawUrl }, "Image proxy error");
+    res.status(502).end();
+  }
+});
+
+// ─── Manga Trending ─────────────────────────────────────────────────────────
 // GET /api/manga/trending?type=manga|manhwa|manhua
 router.get("/manga/trending", async (req: Request, res: Response) => {
   try {
@@ -79,6 +157,7 @@ router.get("/manga/trending", async (req: Request, res: Response) => {
   }
 });
 
+// ─── Manga Search ────────────────────────────────────────────────────────────
 // GET /api/manga/search?q=...&type=manga|manhwa|manhua
 router.get("/manga/search", async (req: Request, res: Response) => {
   try {
@@ -103,7 +182,9 @@ router.get("/manga/search", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/manga/chapter/:chapterId/pages — MUST come before /:id
+// ─── Chapter Pages ───────────────────────────────────────────────────────────
+// GET /api/manga/chapter/:chapterId/pages?dataSaver=true|false
+// MUST be registered before /:id to avoid param collision
 router.get("/manga/chapter/:chapterId/pages", async (req: Request, res: Response) => {
   try {
     const { chapterId } = req.params;
@@ -122,11 +203,11 @@ router.get("/manga/chapter/:chapterId/pages", async (req: Request, res: Response
 
     res.json({
       chapterId,
-      baseUrl,
-      hash,
       pages: files.map((filename, i) => ({
         index: i,
-        url: `${baseUrl}/${quality}/${hash}/${filename}`,
+        // Proxy every page through our server so the at-home CDN gets
+        // the required Referer header (browsers cannot set it on <img>)
+        url: proxyImageUrl(`${baseUrl}/${quality}/${hash}/${filename}`),
         filename,
       })),
       total: files.length,
@@ -137,6 +218,7 @@ router.get("/manga/chapter/:chapterId/pages", async (req: Request, res: Response
   }
 });
 
+// ─── Chapter List ────────────────────────────────────────────────────────────
 // GET /api/manga/:id/chapters
 router.get("/manga/:id/chapters", async (req: Request, res: Response) => {
   try {
@@ -165,7 +247,8 @@ router.get("/manga/:id/chapters", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/manga/:id — detail (must come AFTER static sub-routes)
+// ─── Manga Detail ────────────────────────────────────────────────────────────
+// GET /api/manga/:id — MUST come AFTER all static sub-routes
 router.get("/manga/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
