@@ -496,6 +496,38 @@ export default function WatchPage() {
             {/* Left: player + info */}
             <div className="lg:col-span-2 flex flex-col gap-5">
 
+              {/* Admin Debug Panel */}
+              {isAdmin && streamData && (
+                <div className="mb-3 rounded-xl p-3 text-[11px] font-mono border" style={{ background: "rgba(0,0,0,0.85)", borderColor: "rgba(255,215,0,0.4)", color: "#ffd700" }}>
+                  <div className="flex items-center gap-2 mb-2 font-bold text-[12px]">
+                    <AdminCrown size="xs" /> Admin Debug Info
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                    <span className="opacity-60">Active Provider:</span>
+                    <span className="text-primary">{currentProvider?.name ?? "none"}</span>
+                    <span className="opacity-60">Provider Label:</span>
+                    <span className="text-white">{currentProvider?.label ?? "—"}</span>
+                    <span className="opacity-60">IMDB ID:</span>
+                    <span className="text-white">{streamData.imdbId ?? "not resolved"}</span>
+                    <span className="opacity-60">MAL ID / Episode:</span>
+                    <span className="text-white">{streamData.malId} / {streamData.episode}</span>
+                    <span className="opacity-60">Total Providers:</span>
+                    <span className="text-white">{streamData.providers.length}</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-yellow-500/20">
+                    <span className="opacity-60">Embed URL: </span>
+                    <span className="text-green-400 break-all">{currentEmbedUrl ?? "none"}</span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {streamData.providers.map(p => (
+                      <span key={p.name} className={`px-1.5 py-0.5 rounded text-[9px] border ${p.name === activeProvider ? "border-primary text-primary bg-primary/10" : "border-yellow-500/30 text-yellow-600"}`}>
+                        {p.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Video Player */}
               <div ref={playerContainerRef} className="w-full aspect-video bg-black rounded-xl overflow-hidden relative border border-primary/20 shadow-neon" style={{ transform: "translateZ(0)" }}>
                 {streamLoading && (
@@ -515,9 +547,17 @@ export default function WatchPage() {
                   </div>
                 )}
                 {!streamLoading && !streamError && currentEmbedUrl && (
-                  <iframe ref={iframeRef} key={currentEmbedUrl} src={currentEmbedUrl} className="w-full h-full"
-                    allowFullScreen allow="autoplay; fullscreen; picture-in-picture" referrerPolicy="no-referrer-when-downgrade"
-                    title={`${anime?.title || "Anime"} Episode ${selectedEp}`} />
+                  <iframe
+                    ref={iframeRef}
+                    key={currentEmbedUrl}
+                    src={currentEmbedUrl}
+                    className="w-full h-full"
+                    allowFullScreen
+                    allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                    referrerPolicy="no-referrer"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-pointer-lock"
+                    title={`${anime?.title || "Anime"} Episode ${selectedEp}`}
+                  />
                 )}
                 {!streamLoading && !streamError && !currentEmbedUrl && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -663,18 +703,20 @@ export default function WatchPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {EXTRA_SERVERS.map((srv) => (
-                    <button key={srv.name} onClick={() => handleProviderClick(srv.name)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${activeServer === srv.name ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"}`}>
-                      {srv.label}
-                    </button>
-                  ))}
-                  {streamData?.providers?.filter(p => !EXTRA_SERVERS.find(s => s.name === p.name)).map((provider) => (
-                    <button key={provider.name} onClick={() => handleProviderClick(provider.name)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${activeProvider === provider.name ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"}`}>
-                      {provider.label}
-                    </button>
-                  ))}
+                  {streamData?.providers
+                    ? streamData.providers.map((provider) => (
+                        <button key={provider.name} onClick={() => handleProviderClick(provider.name)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${activeProvider === provider.name ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"}`}>
+                          {provider.label}
+                        </button>
+                      ))
+                    : EXTRA_SERVERS.map((srv) => (
+                        <button key={srv.name} onClick={() => handleProviderClick(srv.name)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${activeProvider === srv.name ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"}`}>
+                          {srv.label}
+                        </button>
+                      ))
+                  }
                 </div>
                 <div className="flex items-center gap-2 pt-1 border-t border-border">
                   <Tv className="w-3.5 h-3.5 text-muted-foreground shrink-0" />

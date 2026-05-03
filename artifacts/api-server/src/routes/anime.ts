@@ -54,43 +54,52 @@ async function getIdMappings(malId: number): Promise<any> {
 function buildProviderUrls(imdbId: string | null, malId: number, episode: number, season: number) {
   const providers: { name: string; url: string; label: string }[] = [];
 
-  // HiAnime player (served from our own /api/anime/player endpoint)
+  if (imdbId) {
+    // vidsrc.to — PRIMARY, tested 200, no X-Frame-Options, very reliable
+    providers.push({
+      name: "vidsrc_to",
+      label: "VidSrc.to",
+      url: `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`,
+    });
+  }
+
+  // Self-hosted HLS player via Hianime (consumet) — real HLS, may fail if CF blocks
   providers.push({
-    name: "hianime",
-    label: "HiAnime HD",
+    name: "hianime_hls",
+    label: "HiAnime HLS",
     url: `/api/anime/player?malId=${malId}&episode=${episode}`,
   });
 
   if (imdbId) {
+    // autoembed.co — tested 200, no X-Frame-Options
     providers.push({
-      name: "2embed",
-      label: "2Embed",
-      url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}`,
+      name: "autoembed",
+      label: "AutoEmbed",
+      url: `https://autoembed.co/tv/imdb/${imdbId}-${season}-${episode}`,
     });
-    providers.push({
-      name: "embedsu",
-      label: "EmbedSu",
-      url: `https://embed.su/embed/tv/${imdbId}/${season}/${episode}`,
-    });
+    // vidsrc.xyz — tested 200, no X-Frame-Options
     providers.push({
       name: "vidsrc_xyz",
       label: "VidSrc",
       url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}`,
     });
+    // 2embed.cc — tested 200
+    providers.push({
+      name: "2embed",
+      label: "2Embed",
+      url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}`,
+    });
+    // moviesapi.club — tested 200
+    providers.push({
+      name: "moviesapi",
+      label: "MoviesAPI",
+      url: `https://moviesapi.club/tv/${imdbId}-${season}-${episode}`,
+    });
+    // vidsrc.pro
     providers.push({
       name: "vidsrc_pro",
       label: "VidSrc Pro",
       url: `https://vidsrc.pro/embed/tv/${imdbId}/${season}/${episode}`,
-    });
-    providers.push({
-      name: "smashystream",
-      label: "SmashyStream",
-      url: `https://player.smashy.stream/tv/${imdbId}?s=${season}&e=${episode}`,
-    });
-    providers.push({
-      name: "multiembed",
-      label: "MultiEmbed",
-      url: `https://multiembed.mov/?video_id=${imdbId}&tmdb=0&s=${season}&e=${episode}`,
     });
   }
 
@@ -221,107 +230,149 @@ router.get("/anime/ids", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/anime/player?malId=X&episode=Y — serves an HTML5 HLS player using real HiAnime streams
-router.get("/anime/player", async (req: Request, res: Response) => {
-  const malId = parseInt(String(req.query.malId || ""));
-  const episode = parseInt(String(req.query.episode || "1"));
-  const category = String(req.query.category || "sub") as "sub" | "dub" | "raw";
+// In-memory GogoAnime search cache (title → gogoanime id)
+const gogoCache = new Map<string, { id: string; expiresAt: number }>();
+const GOGO_CACHE_TTL = 6 * 60 * 60 * 1000;
 
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+async function resolveHiAnimeStream(title: string, episode: number): Promise<{ hlsSrc: string; subtitles: any[] }> {
+  const cacheKey = `hianime:${title}:${episode}`;
+  const cached = gogoCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    // cached.id stores the HLS URL directly for Hianime
+    return { hlsSrc: cached.id, subtitles: [] };
+  }
 
-  try {
-    // 1. Get anime title from Jikan
-    const jikanData = await jikanFetch(`/anime/${malId}`);
-    const title: string = jikanData.data?.title_english || jikanData.data?.title || "Unknown";
+  // Use consumet ANIME.Hianime (available in v1.8.8)
+  // globalThis.require is patched in via the esbuild banner so it works in the ESM bundle
+  const consumet = globalThis.require("@consumet/extensions");
+  const HiAnimeProvider = consumet.ANIME?.Hianime;
+  if (!HiAnimeProvider) throw new Error("Hianime provider not available in @consumet/extensions");
+  const hianime = new HiAnimeProvider();
 
-    // 2. Search HiAnime via aniwatch
-    const scraper = new HiAnime.Scraper();
-    const searchResult = await scraper.search(title);
-    const animeEntry = searchResult.animes?.[0];
-    if (!animeEntry?.id) throw new Error(`"${title}" not found on HiAnime`);
+  const results = await hianime.search(title);
+  const best = results.results?.[0];
+  if (!best?.id) throw new Error(`"${title}" not found on Hianime`);
 
-    // 3. Get episode list
-    const epsResult = await scraper.getAnimeEpisodes(animeEntry.id);
-    const ep = epsResult.episodes?.[episode - 1];
-    if (!ep?.episodeId) throw new Error(`Episode ${episode} not available on HiAnime`);
+  const info = await hianime.fetchAnimeInfo(best.id);
+  const ep = info.episodes?.[episode - 1];
+  if (!ep?.id) throw new Error(`Episode ${episode} not available on Hianime`);
 
-    // 4. Get episode servers
-    const serversResult = await scraper.getEpisodeServers(ep.episodeId);
-    const servers = serversResult[category] ?? serversResult.sub ?? [];
-    const server = servers[0]?.serverName as any ?? "hd-1";
+  const sources = await hianime.fetchEpisodeSources(ep.id);
+  const hlsSrc = sources.sources?.find((s: any) => s.isM3U8 && s.quality === "auto")?.url
+    || sources.sources?.find((s: any) => s.isM3U8)?.url
+    || sources.sources?.[0]?.url
+    || "";
 
-    // 5. Get HLS sources
-    const sourcesResult = await scraper.getEpisodeSources(ep.episodeId, server, category);
-    const hlsSrc = sourcesResult.sources?.find((s: any) => s.isM3U8)?.url
-      || sourcesResult.sources?.[0]?.url
-      || "";
+  if (!hlsSrc) throw new Error("No HLS sources found on Hianime");
 
-    if (!hlsSrc) throw new Error("No streaming sources found");
+  gogoCache.set(cacheKey, { id: hlsSrc, expiresAt: Date.now() + GOGO_CACHE_TTL });
+  const subtitles = (sources.subtitles ?? []).filter((s: any) => s.url && s.lang);
+  return { hlsSrc, subtitles };
+}
 
-    const tracks = (sourcesResult.tracks ?? []).filter((t: any) => t.kind === "captions" || t.kind === "subtitles");
-    const defaultTrack = tracks.find((t: any) => t.label === "English") ?? tracks[0] ?? null;
+function buildPlayerHtml(title: string, episode: number, hlsSrc: string, subtitles: any[], error?: string): string {
+  if (error) {
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  body{background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px;margin:0}
+  .icon{font-size:48px;margin-bottom:16px}
+  h2{color:#39ff14;margin-bottom:8px;font-size:18px}
+  p{color:#888;font-size:13px;margin-bottom:16px;max-width:320px}
+  .hint{color:#39ff14;font-size:12px;border:1px solid rgba(57,255,20,.3);padding:8px 16px;border-radius:20px;display:inline-block}
+</style></head>
+<body><div>
+  <div class="icon">📡</div>
+  <h2>GogoAnime stream unavailable</h2>
+  <p>${error.replace(/[<>&"]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] ?? c))}</p>
+  <span class="hint">Switch to another server above ↑</span>
+</div></body></html>`;
+  }
 
-    res.send(`<!DOCTYPE html>
+  const tracksHtml = subtitles.map((s: any) =>
+    `<track kind="subtitles" src="${s.url}" srclang="${s.lang?.slice(0,2) ?? "en"}" label="${s.lang}">`
+  ).join("\n");
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
 <title>${title} — Episode ${episode}</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
   video { width: 100%; height: 100vh; display: block; object-fit: contain; }
-  #status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #39ff14; font-family: sans-serif; font-size: 14px; gap: 12px; }
+  #status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #39ff14; font-family: sans-serif; font-size: 14px; gap: 12px; pointer-events: none; }
   .spinner { width: 40px; height: 40px; border: 3px solid rgba(57,255,20,.3); border-top-color: #39ff14; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  #err { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; color: #ff4444; font-family: sans-serif; font-size: 14px; gap: 8px; text-align: center; padding: 24px; }
 </style>
 </head>
 <body>
-<div id="status"><div class="spinner"></div><span>Loading stream…</span></div>
+<div id="status"><div class="spinner"></div><span>Loading GogoAnime stream…</span></div>
+<div id="err"></div>
 <video id="vid" controls crossorigin="anonymous" playsinline preload="auto">
-  ${tracks.map((t: any) => `<track kind="${t.kind}" src="${t.file}" label="${t.label ?? t.kind}"${t === defaultTrack ? " default" : ""}>`).join("")}
+  ${tracksHtml}
 </video>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
 <script>
 (function() {
   var vid = document.getElementById("vid");
   var status = document.getElementById("status");
+  var errEl = document.getElementById("err");
   var src = ${JSON.stringify(hlsSrc)};
+  function showErr(msg) {
+    status.style.display = "none";
+    errEl.style.display = "flex";
+    errEl.innerHTML = '<span style="font-size:32px">⚠️</span><strong>Stream error</strong><span style="color:#aaa;font-size:12px">' + msg + '</span><span style="color:#39ff14;font-size:11px;margin-top:8px">Try switching to another server above ↑</span>';
+  }
   function onReady() { status.style.display = "none"; }
   vid.addEventListener("canplay", onReady, { once: true });
-  if (src && window.Hls && Hls.isSupported()) {
-    var hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+  if (!src) { showErr("No stream URL resolved"); return; }
+  if (window.Hls && Hls.isSupported()) {
+    var hls = new Hls({ enableWorker: true, lowLatencyMode: false, xhrSetup: function(xhr) { xhr.withCredentials = false; } });
     hls.loadSource(src);
     hls.attachMedia(vid);
     hls.on(Hls.Events.MANIFEST_PARSED, function() { vid.play().catch(function(){}); onReady(); });
-    hls.on(Hls.Events.ERROR, function(_, d) { if (d.fatal) status.innerHTML = '<span style="color:#ff4444">Stream error. Try another server.</span>'; });
+    hls.on(Hls.Events.ERROR, function(_, d) {
+      if (d.fatal) showErr("HLS fatal error: " + d.type + " — " + d.details);
+    });
   } else if (vid.canPlayType("application/vnd.apple.mpegurl")) {
     vid.src = src;
     vid.addEventListener("loadedmetadata", function() { vid.play().catch(function(){}); });
+    vid.addEventListener("error", function() { showErr("Native HLS playback failed"); });
   } else {
-    status.innerHTML = '<span style="color:#ff4444">Your browser does not support HLS playback.</span>';
+    showErr("Your browser does not support HLS playback");
   }
 })();
 </script>
 </body>
-</html>`);
+</html>`;
+}
+
+// GET /api/anime/player?malId=X&episode=Y — self-hosted HLS player via GogoAnime (Consumet)
+router.get("/anime/player", async (req: Request, res: Response) => {
+  const malId = parseInt(String(req.query.malId || ""));
+  const episode = parseInt(String(req.query.episode || "1"));
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "no-referrer");
+
+  let title = "Anime";
+  try {
+    const jikanData = await jikanFetch(`/anime/${malId}`);
+    title = jikanData.data?.title_english || jikanData.data?.title || "Anime";
+  } catch { /* Jikan may be rate-limited; carry on */ }
+
+  try {
+    const { hlsSrc, subtitles } = await resolveHiAnimeStream(title, episode);
+    req.log.info({ malId, episode, hlsSrc: hlsSrc.slice(0, 80) }, "HiAnime stream resolved");
+    res.send(buildPlayerHtml(title, episode, hlsSrc, subtitles));
   } catch (err: any) {
-    req.log.error({ err }, "HiAnime player failed");
-    res.send(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>
-  body{background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px;}
-  .icon{font-size:48px;margin-bottom:16px;}
-  h2{color:#39ff14;margin-bottom:8px;font-size:18px;}
-  p{color:#888;font-size:13px;margin-bottom:16px;}
-  .hint{color:#39ff14;font-size:12px;border:1px solid rgba(57,255,20,.3);padding:8px 16px;border-radius:20px;display:inline-block;}
-</style></head>
-<body><div>
-  <div class="icon">📡</div>
-  <h2>HiAnime stream unavailable</h2>
-  <p>${String(err?.message ?? "Could not fetch stream").replace(/[<>]/g, "")}</p>
-  <span class="hint">Switch to another server above ↑</span>
-</div></body></html>`);
+    req.log.warn({ err }, "HiAnime player failed, returning error page");
+    res.send(buildPlayerHtml(title, episode, "", [], String(err?.message ?? "Could not fetch stream")));
   }
 });
 

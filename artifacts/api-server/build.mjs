@@ -100,6 +100,9 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      // ESM-only packages used by @consumet/extensions
+      "got-scraping",
+      "@consumet/extensions",
     ],
     sourcemap: "linked",
     plugins: [

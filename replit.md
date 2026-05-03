@@ -44,11 +44,17 @@ Full-screen anime/manga streaming & reading platform. Neon green & black UI.
 - **SEO**: Full Open Graph + Twitter Card meta tags in `index.html`
 
 ### Video Player Features (watch.tsx)
+- **Primary Provider**: VidSrc.to — tested 200 OK, no X-Frame-Options, most reliable
+- **Provider list** (in order): VidSrc.to, HiAnime HLS (self-hosted, may fail gracefully), AutoEmbed, VidSrc, 2Embed, MoviesAPI, VidSrc Pro, AnimePahe
+- **iframe settings**: `referrerPolicy="no-referrer"`, full `sandbox` attribute, `allow="autoplay; fullscreen; picture-in-picture; encrypted-media"`
+- **Self-hosted HLS player** (`/api/anime/player`): Attempts HiAnime via @consumet/extensions; shows graceful error if unavailable (HiAnime uses CloudFlare protection)
 - **Skip Intro**: Overlay button appears at 85–110s after episode loads (press I or click)
 - **Skip Outro**: Overlay button appears at 1260–1380s (press O or click)
 - **Keyboard Shortcuts**: `F` = fullscreen player container, `?` = toggle hints panel, `I` = skip intro, `O` = skip outro, `Esc` = close panels
 - **Auto-failover**: 15s timer auto-switches to next provider with toast notification
 - **Auto-play**: Optional countdown to next episode
+- **Admin Debug Panel**: Visible only to admin above the player — shows active provider, IMDB ID, MAL ID, episode, total providers, and full embed URL
+- **Provider buttons**: Dynamically populated from stream API response (no more hardcoded static list)
 
 ### Admin Panel (`/xadmin`)
 - **Maintenance Mode**: Toggle that shows "Coming Back Soon" to all non-admin users
