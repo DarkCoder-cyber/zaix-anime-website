@@ -7,7 +7,7 @@ import { useGetTrendingAnime, useGetRecentAnime, getGetTrendingAnimeQueryKey, ge
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import heroBg from "@/assets/hero-bg.png";
-import { Search, History, Sparkles, BookOpen, Users, Heart, Play, ExternalLink } from "lucide-react";
+import { Search, History, Sparkles, BookOpen, Users, Heart, Play, ExternalLink, ChevronDown } from "lucide-react";
 import { useRecentlyVisited } from "@/hooks/use-local-store";
 import { cachedFetchJson } from "@/hooks/api-cache";
 import { useAuth } from "@/hooks/use-auth";
@@ -207,6 +207,18 @@ export default function Home() {
             <Users className="w-3.5 h-3.5 text-primary" />
             <span className="text-sm font-bold text-white">{liveUsers.toLocaleString()}</span>
             <span className="text-xs text-muted-foreground font-medium">watching right now</span>
+          </div>
+        </div>
+
+        {/* Scroll-down arrow — fades out once user scrolls */}
+        <div
+          className="absolute bottom-10 left-0 right-0 z-[4] flex flex-col items-center gap-1 pointer-events-none transition-opacity duration-500"
+          style={{ opacity: heroScroll > 60 ? 0 : 1 }}
+        >
+          <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-white/40">Scroll</span>
+          <div className="flex flex-col items-center" style={{ animation: "hero-bounce 1.6s ease-in-out infinite" }}>
+            <ChevronDown className="w-5 h-5 text-primary/70" />
+            <ChevronDown className="w-5 h-5 text-primary/40 -mt-3" />
           </div>
         </div>
 
