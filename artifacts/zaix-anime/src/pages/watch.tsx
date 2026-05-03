@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   Share2, Heart, MessageSquare, Star, Send, Play, Tv,
   AlertCircle, RefreshCw, Film, PictureInPicture2, WandSparkles,
-  Download, Check, X, Server, ChevronDown, Layers,
+  Download, Check, X, Server, ChevronDown, Layers, SkipForward,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ReviewSection } from "@/components/review-section";
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { AdminCrown } from "@/components/admin-badge";
+import { useAdmin } from "@/hooks/use-admin";
 import {
   useGetAnimeById,
   useGetAnimeEpisodes,
@@ -104,41 +106,32 @@ function DownloadModal({ anime, episode, onClose }: { anime: any; episode: numbe
   );
 }
 
-function SeasonSelector({ malId, seasons, onSelect }: { malId: number; seasons: SeasonEntry[]; onSelect: (id: number) => void }) {
-  const [open, setOpen] = useState(false);
-  const current = seasons.find(s => s.malId === malId) ?? seasons[0];
-
+function SeasonTabs({ malId, seasons, onSelect }: { malId: number; seasons: SeasonEntry[]; onSelect: (id: number) => void }) {
   if (seasons.length <= 1) return null;
-
   return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 px-4 py-2 bg-card border border-primary/30 rounded-xl text-sm font-semibold text-white hover:border-primary/60 transition-all shadow-neon"
-      >
-        <Layers className="w-4 h-4 text-primary shrink-0" />
-        <span className="line-clamp-1 max-w-[180px]">{current?.title || "Select Season"}</span>
-        <ChevronDown className={`w-4 h-4 text-primary shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open && (
-        <div className="absolute top-full mt-2 left-0 z-40 bg-black/95 backdrop-blur-xl border border-primary/30 rounded-xl shadow-neon-intense overflow-hidden min-w-[240px] max-w-[320px]">
-          {seasons.map((s, i) => (
-            <button
-              key={s.malId}
-              onClick={() => { onSelect(s.malId); setOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-primary/10 transition-colors border-b border-primary/5 last:border-0 ${s.malId === malId ? "bg-primary/10 text-primary" : "text-foreground"}`}
-            >
-              <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">{i + 1}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold line-clamp-1">{s.title || `Entry ${i + 1}`}</p>
-                <p className="text-[10px] text-muted-foreground capitalize">{s.relation}</p>
-              </div>
-              {s.malId === malId && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 font-semibold uppercase tracking-wider">
+        <Layers className="w-3.5 h-3.5 text-primary" />
+        <span>Seasons</span>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1 flex-1 hide-scrollbar" style={{ scrollbarWidth: "none" }}>
+        {seasons.map((s, i) => (
+          <button
+            key={s.malId}
+            onClick={() => onSelect(s.malId)}
+            title={s.title}
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
+              s.malId === malId
+                ? "bg-primary text-black border-primary shadow-neon"
+                : "bg-card border-primary/20 text-muted-foreground hover:border-primary/60 hover:text-primary"
+            }`}
+          >
+            {s.relation === "Sequel" || s.relation === "Prequel" || s.relation === "Side story" || s.relation === "Spin-off"
+              ? `${s.relation} ${i + 1}`
+              : `Season ${i + 1}`}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -147,6 +140,7 @@ export default function WatchPage() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const malId = parseInt(id || "0");
+  const { authenticated: isAdmin } = useAdmin();
   const [selectedEp, setSelectedEp] = useState<number>(1);
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [streamLoading, setStreamLoading] = useState(false);
@@ -159,6 +153,11 @@ export default function WatchPage() {
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
   const [showDownload, setShowDownload] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("zaix_autoplay") ?? "false"); } catch { return false; }
+  });
+  const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
+  const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { addRecent } = useRecentlyVisited();
 
@@ -170,7 +169,6 @@ export default function WatchPage() {
   });
   const episodes = episodesData?.data ?? [];
 
-  // Seasons / related series
   const { data: seasonsData } = useQuery({
     queryKey: ["anime-seasons", malId],
     queryFn: async () => {
@@ -203,9 +201,35 @@ export default function WatchPage() {
     return () => clearTimeout(t);
   }, [anime]);
 
-  const fetchStream = async (epNumber: number) => {
+  const clearAutoPlayTimer = useCallback(() => {
+    if (autoPlayTimerRef.current) { clearInterval(autoPlayTimerRef.current); autoPlayTimerRef.current = null; }
+    setAutoPlayCountdown(null);
+  }, []);
+
+  const startAutoPlayCountdown = useCallback((nextEp: number) => {
+    clearAutoPlayTimer();
+    setAutoPlayCountdown(15);
+    autoPlayTimerRef.current = setInterval(() => {
+      setAutoPlayCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(autoPlayTimerRef.current!);
+          autoPlayTimerRef.current = null;
+          setAutoPlayCountdown(null);
+          setSelectedEp(nextEp);
+          fetchStream(nextEp);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [clearAutoPlayTimer]);
+
+  useEffect(() => { return () => clearAutoPlayTimer(); }, [clearAutoPlayTimer]);
+
+  const fetchStream = useCallback(async (epNumber: number) => {
     setStreamLoading(true);
     setStreamError(null);
+    clearAutoPlayTimer();
     try {
       const res = await fetch(`/api/anime/stream?malId=${malId}&episode=${epNumber}&season=1`);
       if (!res.ok) {
@@ -215,12 +239,18 @@ export default function WatchPage() {
       const data: StreamData = await res.json();
       setStreamData(data);
       if (data.providers?.length > 0) setActiveProvider(data.providers[0].name);
+      // Start autoplay countdown for next episode
+      if (autoPlay) {
+        const nextEpNumber = epNumber + 1;
+        const hasNext = episodes.some(e => e.number === nextEpNumber);
+        if (hasNext) startAutoPlayCountdown(nextEpNumber);
+      }
     } catch (err: any) {
       setStreamError(err.message || "Could not load video stream");
     } finally {
       setStreamLoading(false);
     }
-  };
+  }, [malId, autoPlay, episodes, clearAutoPlayTimer, startAutoPlayCountdown]);
 
   const handleEpisodeClick = (epNumber: number) => {
     setSelectedEp(epNumber);
@@ -228,14 +258,22 @@ export default function WatchPage() {
   };
 
   const handleSeasonSelect = (seasonMalId: number) => {
-    if (seasonMalId !== malId) {
-      setLocation(`/watch/${seasonMalId}`);
-    }
+    if (seasonMalId !== malId) setLocation(`/watch/${seasonMalId}`);
+  };
+
+  const toggleAutoPlay = () => {
+    const next = !autoPlay;
+    setAutoPlay(next);
+    try { localStorage.setItem("zaix_autoplay", JSON.stringify(next)); } catch {}
+    if (!next) clearAutoPlayTimer();
+    toast.success(next ? "Auto-Play enabled" : "Auto-Play disabled");
   };
 
   const currentProvider = streamData?.providers?.find(p => p.name === activeProvider) ?? streamData?.providers?.[0] ?? null;
   const currentEmbedUrl = currentProvider?.url ?? null;
   const directLink = typeof window !== "undefined" ? `${window.location.origin}/watch/${malId}` : `/watch/${malId}`;
+  const nextEpNumber = selectedEp + 1;
+  const hasNextEp = episodes.some(e => e.number === nextEpNumber);
 
   const share = async () => {
     try { await navigator.clipboard.writeText(directLink); toast.success("Link copied!", { duration: 1500 }); } catch {}
@@ -255,32 +293,8 @@ export default function WatchPage() {
       <div className="min-h-screen bg-background pt-16 pb-20">
         <div className="container mx-auto px-4 max-w-7xl mt-6">
 
-          {/* Season selector bar */}
-          {seasons.length > 1 && (
-            <div className="flex items-center gap-3 mb-5 flex-wrap">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
-                <Layers className="w-4 h-4 text-primary" />
-                <span>Seasons:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {seasons.map((s, i) => (
-                  <button
-                    key={s.malId}
-                    onClick={() => handleSeasonSelect(s.malId)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      s.malId === malId
-                        ? "bg-primary text-black border-primary shadow-neon"
-                        : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
-                    }`}
-                    title={s.title}
-                  >
-                    {s.relation === "Current" ? `Season ${i + 1}` : `${s.relation.replace("Alternative version", "Alt").replace("Parent story", "Origin")} ${i + 1}`}
-                  </button>
-                ))}
-              </div>
-              <SeasonSelector malId={malId} seasons={seasons} onSelect={handleSeasonSelect} />
-            </div>
-          )}
+          {/* Season Tabs */}
+          <SeasonTabs malId={malId} seasons={seasons} onSelect={handleSeasonSelect} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
@@ -325,14 +339,56 @@ export default function WatchPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Auto-play countdown overlay */}
+                {autoPlayCountdown !== null && hasNextEp && !streamLoading && (
+                  <div className="absolute bottom-4 right-4 z-20 flex items-center gap-3 bg-black/80 backdrop-blur-md border border-primary/30 rounded-xl px-4 py-3 shadow-neon">
+                    <div className="flex flex-col">
+                      <span className="text-white text-xs font-semibold">Next Episode in</span>
+                      <span className="text-primary font-black text-2xl leading-tight">{autoPlayCountdown}s</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <button
+                        onClick={() => { clearAutoPlayTimer(); fetchStream(nextEpNumber); setSelectedEp(nextEpNumber); }}
+                        className="px-3 py-1 rounded-lg bg-primary text-black text-xs font-bold hover:bg-primary/90 flex items-center gap-1"
+                      >
+                        <SkipForward className="w-3 h-3" /> Play Now
+                      </button>
+                      <button onClick={clearAutoPlayTimer} className="px-3 py-1 rounded-lg bg-secondary text-muted-foreground text-xs font-semibold hover:text-white">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Multi-Server Switcher + Language filter */}
+              {/* Multi-Server Switcher + Language filter + Auto-Play */}
               <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <Server className="w-4 h-4 text-primary shrink-0" />
-                  <span className="text-sm font-semibold text-white">Streaming Servers</span>
-                  <span className="text-xs text-muted-foreground ml-1">— switch if one doesn't load</span>
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                  <div className="flex items-center gap-2">
+                    <Server className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-sm font-semibold text-white">Streaming Servers</span>
+                    <span className="text-xs text-muted-foreground ml-1">— switch if one doesn't load</span>
+                  </div>
+                  {/* Auto-Play Toggle */}
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-semibold text-muted-foreground">Auto-Play</span>
+                    <button
+                      onClick={toggleAutoPlay}
+                      role="switch"
+                      aria-checked={autoPlay}
+                      className="relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none"
+                      style={{ background: autoPlay ? "#39ff14" : "#333" }}
+                    >
+                      <span
+                        className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
+                        style={{ transform: autoPlay ? "translateX(22px)" : "translateX(3px)" }}
+                      />
+                    </button>
+                    {autoPlay && hasNextEp && (
+                      <span className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/10 px-1.5 py-0.5 rounded-full">ON</span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {EXTRA_SERVERS.map((srv) => (
@@ -397,6 +453,11 @@ export default function WatchPage() {
                 <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10" onClick={() => setShowDownload(true)}>
                   <Download className="w-4 h-4 mr-2" /> Download
                 </Button>
+                {hasNextEp && streamData && (
+                  <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10" onClick={() => { setSelectedEp(nextEpNumber); fetchStream(nextEpNumber); }}>
+                    <SkipForward className="w-4 h-4 mr-2" /> Next Episode
+                  </Button>
+                )}
               </div>
 
               {/* Anime info */}
@@ -492,7 +553,7 @@ export default function WatchPage() {
                 <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" /> Live Chat
                 </h3>
-                <LiveChat chatMsg={chatMsg} setChatMsg={setChatMsg} />
+                <LiveChat chatMsg={chatMsg} setChatMsg={setChatMsg} isAdmin={isAdmin} />
               </div>
             </div>
           </div>
@@ -511,8 +572,10 @@ function EpisodeListHeader({ episodes }: { episodes: any[] }) {
   );
 }
 
-function LiveChat({ chatMsg, setChatMsg }: { chatMsg: string; setChatMsg: (v: string) => void }) {
-  const [messages, setMessages] = useState([
+interface ChatMessage { id: number; user: string; text: string; color: string; isAdmin?: boolean; }
+
+function LiveChat({ chatMsg, setChatMsg, isAdmin }: { chatMsg: string; setChatMsg: (v: string) => void; isAdmin: boolean }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 1, user: "AnimeFan99", text: "THIS ANIMATION IS INSANE 🔥", color: "text-primary" },
     { id: 2, user: "KiraKun", text: "Best episode so far imo", color: "text-blue-400" },
     { id: 3, user: "SakuraChan", text: "I can't wait for the next arc!!", color: "text-pink-400" },
@@ -523,21 +586,43 @@ function LiveChat({ chatMsg, setChatMsg }: { chatMsg: string; setChatMsg: (v: st
 
   function send() {
     if (!chatMsg.trim()) return;
-    setMessages((m) => [...m, { id: Date.now(), user: "You", text: chatMsg.trim(), color: "text-primary" }]);
+    setMessages((m) => [...m, { id: Date.now(), user: isAdmin ? "zaix" : "You", text: chatMsg.trim(), color: isAdmin ? "text-yellow-400" : "text-primary", isAdmin }]);
     setChatMsg("");
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
   return (
     <>
-      <div className="h-[240px] sm:h-[280px] flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2 mb-4 text-sm">
+      <div className="h-[240px] sm:h-[280px] flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-2 mb-4 text-sm">
         {messages.map((m) => (
-          <div key={m.id} className={`font-bold ${m.color}`}>{m.user}: <span className="font-normal text-white">{m.text}</span></div>
+          <div
+            key={m.id}
+            className="rounded-lg px-2.5 py-1.5"
+            style={m.isAdmin ? {
+              background: "rgba(255,215,0,0.06)",
+              border: "1px solid rgba(255,215,0,0.35)",
+              boxShadow: "0 0 8px rgba(255,215,0,0.12)"
+            } : {}}
+          >
+            <span className={`font-bold ${m.color} flex items-center gap-1.5 inline-flex`}>
+              {m.isAdmin && <AdminCrown size="xs" />}
+              {m.user}:
+            </span>{" "}
+            <span className={m.isAdmin ? "font-medium text-yellow-50" : "font-normal text-white"}>{m.text}</span>
+          </div>
         ))}
         <div ref={endRef} />
       </div>
       <div className="relative">
-        <input type="text" value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Say something..." className="w-full bg-secondary border border-border rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none focus:border-primary/50 text-white" />
+        <input
+          type="text"
+          value={chatMsg}
+          onChange={(e) => setChatMsg(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+          placeholder={isAdmin ? "Send as zaix (admin)..." : "Say something..."}
+          className="w-full bg-secondary border rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none text-white transition-colors"
+          style={isAdmin ? { borderColor: "rgba(255,215,0,0.4)", boxShadow: "0 0 6px rgba(255,215,0,0.1)" } : { borderColor: "" }}
+        />
         <button onClick={send} className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-1.5 hover:bg-primary/10 rounded-full transition-colors"><Send className="w-4 h-4" /></button>
       </div>
     </>

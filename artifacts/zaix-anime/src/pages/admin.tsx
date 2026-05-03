@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   Shield, Users, Trash2, Ban, TrendingUp, Flame, Search,
-  LogOut, Eye, EyeOff, X, RefreshCw, Crown, CheckCircle
+  LogOut, Eye, EyeOff, X, RefreshCw, Crown, CheckCircle, AlertTriangle, Power
 } from "lucide-react";
 
 type Tab = "reviews" | "users" | "trending";
@@ -84,7 +84,7 @@ function LoginScreen({ onLogin }: { onLogin: (u: string, p: string) => Promise<b
 }
 
 export default function AdminPage() {
-  const { authenticated, bannedUsers, trendingTags, login, logout, banUser, unbanUser, isBanned, addTrendingTag, removeTrendingTag } = useAdmin();
+  const { authenticated, bannedUsers, trendingTags, maintenanceMode, setMaintenanceMode, login, logout, banUser, unbanUser, isBanned, addTrendingTag, removeTrendingTag } = useAdmin();
   const [tab, setTab] = useState<Tab>("reviews");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -162,7 +162,8 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-background pt-20 pb-24">
       <div className="container mx-auto px-4 max-w-4xl">
-        <div className="flex items-center gap-3 mb-8">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.4)", boxShadow: "0 0 15px rgba(255,215,0,0.2)" }}>
             <Crown className="w-5 h-5" style={{ color: "#FFD700" }} />
           </div>
@@ -177,11 +178,197 @@ export default function AdminPage() {
             <LogOut className="w-3.5 h-3.5 mr-1.5" /> Logout
           </Button>
         </div>
-        <div className="grid grid-cols-3 gap-3 mb-6">{[{ label: "Total Reviews", value: reviews.length, icon: "📝" }, { label: "Banned Users", value: bannedUsers.length, icon: "🚫" }, { label: "Tagged Anime", value: Object.keys(trendingTags).length, icon: "📈" }].map((s) => (<div key={s.label} className="bg-card border border-border rounded-xl p-4 text-center"><div className="text-2xl mb-1">{s.icon}</div><p className="text-xl font-black text-white">{s.value}</p><p className="text-xs text-muted-foreground">{s.label}</p></div>))}</div>
-        <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1">{TABS.map((t) => (<button key={t.key} onClick={() => setTab(t.key)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${tab === t.key ? "text-black font-bold" : "text-muted-foreground hover:text-white"}`} style={tab === t.key ? { background: "linear-gradient(135deg, #FFD700, #FFA500)", boxShadow: "0 0 15px rgba(255,215,0,0.3)" } : {}}>{t.icon} {t.label}</button>))}</div>
-        {tab === "reviews" && (<div className="flex flex-col gap-3"><div className="flex items-center justify-between"><h2 className="font-bold text-white flex items-center gap-2"><Trash2 className="w-4 h-4 text-red-400" /> Manage Reviews</h2><Button size="sm" variant="outline" className="border-border text-muted-foreground" onClick={fetchAllReviews}><RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh</Button></div>{reviewsLoading ? <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div> : reviews.length === 0 ? <div className="text-center py-12 text-muted-foreground"><p>No reviews found across common content IDs.</p><p className="text-xs mt-1">Reviews populate as users visit anime/manga pages.</p></div> : <div className="flex flex-col gap-3">{reviews.map((r) => (<div key={r.id} className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2"><div className="flex items-center justify-between gap-2 flex-wrap"><div className="flex items-center gap-2"><span className="font-bold text-sm text-white flex items-center gap-1.5">{r.userName.toLowerCase() === "zaix" && <AdminCrown size="xs" />}{r.userName}</span><Badge variant="outline" className="text-[9px] border-border text-muted-foreground px-1.5">{r.contentType} #{r.contentId}</Badge><span className="text-xs text-primary">★ {r.rating}/5</span>{isBanned(r.userName) && <Badge variant="outline" className="text-[9px] border-red-500/50 text-red-400 bg-red-500/10 px-1.5">BANNED</Badge>}</div><div className="flex gap-2 shrink-0"><button onClick={() => { if (isBanned(r.userName)) { unbanUser(r.userName); toast.success(`Unbanned ${r.userName}`); } else { banUser(r.userName); toast.success(`Banned ${r.userName}`); } }} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${isBanned(r.userName) ? "border-green-500/30 text-green-400 hover:bg-green-500/10" : "border-orange-500/30 text-orange-400 hover:bg-orange-500/10"}`}><Ban className="w-3 h-3 inline mr-1" />{isBanned(r.userName) ? "Unban" : "Ban"}</button><button onClick={() => deleteReview(r)} className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all"><Trash2 className="w-3 h-3 inline mr-1" /> Delete</button></div></div>{r.reviewText && <p className="text-sm text-muted-foreground leading-relaxed">{r.reviewText}</p>}<p className="text-[10px] text-muted-foreground/60">{timeAgo(r.createdAt)}</p></div>))}</div>}</div>)}
-        {tab === "users" && (<div className="flex flex-col gap-4"><h2 className="font-bold text-white flex items-center gap-2"><Ban className="w-4 h-4 text-orange-400" /> Ban / Unban Users</h2><div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3"><p className="text-sm text-muted-foreground">Enter a username to ban them from submitting reviews and appearing in content.</p><div className="flex gap-2"><input type="text" value={banInput} onChange={(e) => setBanInput(e.target.value)} placeholder="Username to ban..." className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50" onKeyDown={(e) => { if (e.key === "Enter" && banInput.trim()) { banUser(banInput.trim()); toast.success(`Banned "${banInput.trim()}"`); setBanInput(""); } }} /><Button className="bg-red-600 hover:bg-red-700 text-white font-bold shrink-0" disabled={!banInput.trim()} onClick={() => { banUser(banInput.trim()); toast.success(`Banned "${banInput.trim()}"`); setBanInput(""); }}><Ban className="w-4 h-4 mr-1.5" /> Ban</Button></div></div>{bannedUsers.length === 0 ? <div className="text-center py-10 text-muted-foreground"><CheckCircle className="w-10 h-10 mx-auto mb-3 text-primary/30" /><p>No banned users. Community is clean!</p></div> : <div className="flex flex-col gap-2">{bannedUsers.map((u) => (<div key={u} className="bg-card border border-red-500/20 rounded-xl px-4 py-3 flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center"><Ban className="w-4 h-4 text-red-400" /></div><span className="font-bold text-white text-sm">{u}</span><Badge variant="outline" className="text-[9px] border-red-500/40 text-red-400 bg-red-500/10">BANNED</Badge></div><button onClick={() => { unbanUser(u); toast.success(`Unbanned ${u}`); }} className="text-xs font-semibold text-green-400 hover:text-green-300 border border-green-500/30 hover:bg-green-500/10 px-3 py-1 rounded-lg transition-all"><X className="w-3 h-3 inline mr-1" /> Unban</button></div>))}</div>}</div>)}
-        {tab === "trending" && (<div className="flex flex-col gap-4"><h2 className="font-bold text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-primary" /> Manage Trending / Hot Tags</h2><p className="text-sm text-muted-foreground">Search for an anime and apply a Trending or Hot tag. These appear as badges on anime cards across the site.</p><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><input type="text" value={animeSearch} onChange={(e) => setAnimeSearch(e.target.value)} placeholder="Search anime to tag..." className="w-full bg-secondary border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors" /></div>{searchingAnime && <div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}{animeResults.length > 0 && <div className="flex flex-col gap-2">{animeResults.map((anime) => { const tag = trendingTags[String(anime.malId)]; return (<div key={anime.malId} className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">{anime.image && <img src={anime.image} alt={anime.title} className="w-10 h-14 object-cover rounded-lg shrink-0" />}<div className="flex-1 min-w-0"><p className="font-bold text-white text-sm line-clamp-1">{anime.title}</p><div className="flex items-center gap-2 mt-1">{tag ? (<>{tag.tag === "hot" ? <span className="text-[10px] font-bold text-red-400 border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 rounded">🔥 HOT</span> : <span className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/10 px-1.5 py-0.5 rounded">📈 TRENDING</span>}<button onClick={() => { removeTrendingTag(String(anime.malId)); toast.success("Tag removed"); }} className="text-[10px] text-muted-foreground hover:text-red-400 transition-colors"><X className="w-3 h-3 inline" /> Remove</button></>) : <span className="text-[10px] text-muted-foreground">No tag</span>}</div></div><div className="flex gap-2 shrink-0"><button onClick={() => { addTrendingTag(String(anime.malId), "trending"); toast.success(`📈 Tagged "${anime.title}" as Trending`); }} className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-all flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Trending</button><button onClick={() => { addTrendingTag(String(anime.malId), "hot"); toast.success(`🔥 Tagged "${anime.title}" as Hot`); }} className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1"><Flame className="w-3 h-3" /> Hot</button></div></div>);})}</div>}{Object.keys(trendingTags).length > 0 && <div className="mt-2"><h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Currently Tagged</h3><div className="flex flex-col gap-2">{Object.entries(trendingTags).map(([id, t]) => (<div key={id} className="bg-card border border-border rounded-xl px-4 py-2.5 flex items-center justify-between"><div className="flex items-center gap-2">{t.tag === "hot" ? <span className="text-[10px] font-bold text-red-400 border border-red-500/30 bg-red-500/10 px-2 py-0.5 rounded">🔥 HOT</span> : <span className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/10 px-2 py-0.5 rounded">📈 TRENDING</span>}<span className="text-sm text-muted-foreground font-mono">ID: {id}</span></div><button onClick={() => { removeTrendingTag(id); toast.success("Tag removed"); }} className="text-xs text-muted-foreground hover:text-red-400 transition-colors"><X className="w-4 h-4" /></button></div>))}</div></div>}</div>)}
+
+        {/* Maintenance Mode Banner */}
+        {maintenanceMode && (
+          <div className="mb-5 rounded-xl px-4 py-3 flex items-center gap-3 border" style={{ background: "rgba(255,100,0,0.1)", borderColor: "rgba(255,100,0,0.4)" }}>
+            <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
+            <p className="text-orange-300 text-sm font-semibold flex-1">Maintenance Mode is <strong>ON</strong> — Normal users see the "Coming Back Soon" screen.</p>
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: "Total Reviews", value: reviews.length, icon: "📝" },
+            { label: "Banned Users", value: bannedUsers.length, icon: "🚫" },
+            { label: "Tagged Anime", value: Object.keys(trendingTags).length, icon: "📈" },
+            { label: "Maintenance", value: maintenanceMode ? "ON" : "OFF", icon: maintenanceMode ? "🔴" : "🟢" },
+          ].map((s) => (
+            <div key={s.label} className="bg-card border border-border rounded-xl p-4 text-center">
+              <div className="text-2xl mb-1">{s.icon}</div>
+              <p className="text-xl font-black text-white">{s.value}</p>
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Maintenance Mode Toggle Card */}
+        <div className="mb-6 bg-card border rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4" style={{ borderColor: maintenanceMode ? "rgba(255,100,0,0.4)" : "rgba(255,255,255,0.1)" }}>
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: maintenanceMode ? "rgba(255,100,0,0.15)" : "rgba(100,100,100,0.15)", border: `1px solid ${maintenanceMode ? "rgba(255,100,0,0.4)" : "rgba(100,100,100,0.3)"}` }}>
+              <Power className="w-5 h-5" style={{ color: maintenanceMode ? "#FF6400" : "#666" }} />
+            </div>
+            <div>
+              <p className="font-bold text-white text-sm">Maintenance Mode</p>
+              <p className="text-xs text-muted-foreground">When ON, visitors see "Coming Back Soon". You bypass this screen as admin.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const next = !maintenanceMode;
+              setMaintenanceMode(next);
+              toast[next ? "warning" : "success"](next ? "🔴 Maintenance mode enabled — site locked for normal users" : "🟢 Maintenance mode off — site is live again");
+            }}
+            className="shrink-0 relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none"
+            style={{ background: maintenanceMode ? "#FF6400" : "#333" }}
+            role="switch"
+            aria-checked={maintenanceMode}
+          >
+            <span
+              className="inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform"
+              style={{ transform: maintenanceMode ? "translateX(32px)" : "translateX(4px)" }}
+            />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${tab === t.key ? "text-black font-bold" : "text-muted-foreground hover:text-white"}`} style={tab === t.key ? { background: "linear-gradient(135deg, #FFD700, #FFA500)", boxShadow: "0 0 15px rgba(255,215,0,0.3)" } : {}}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Reviews Tab */}
+        {tab === "reviews" && (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-white flex items-center gap-2"><Trash2 className="w-4 h-4 text-red-400" /> Manage Reviews</h2>
+              <Button size="sm" variant="outline" className="border-border text-muted-foreground" onClick={fetchAllReviews}><RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh</Button>
+            </div>
+            {reviewsLoading ? (
+              <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+            ) : reviews.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No reviews found across common content IDs.</p>
+                <p className="text-xs mt-1">Reviews populate as users visit anime/manga pages.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {reviews.map((r) => (
+                  <div key={r.id} className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-white flex items-center gap-1.5">
+                          {r.userName.toLowerCase() === "zaix" && <AdminCrown size="xs" />}
+                          {r.userName}
+                        </span>
+                        <Badge variant="outline" className="text-[9px] border-border text-muted-foreground px-1.5">{r.contentType} #{r.contentId}</Badge>
+                        <span className="text-xs text-primary">★ {r.rating}/5</span>
+                        {isBanned(r.userName) && <Badge variant="outline" className="text-[9px] border-red-500/50 text-red-400 bg-red-500/10 px-1.5">BANNED</Badge>}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => { if (isBanned(r.userName)) { unbanUser(r.userName); toast.success(`Unbanned ${r.userName}`); } else { banUser(r.userName); toast.success(`Banned ${r.userName}`); } }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${isBanned(r.userName) ? "border-green-500/30 text-green-400 hover:bg-green-500/10" : "border-orange-500/30 text-orange-400 hover:bg-orange-500/10"}`}
+                        >
+                          <Ban className="w-3 h-3 inline mr-1" />{isBanned(r.userName) ? "Unban" : "Ban"}
+                        </button>
+                        <button onClick={() => deleteReview(r)} className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all">
+                          <Trash2 className="w-3 h-3 inline mr-1" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                    {r.reviewText && <p className="text-sm text-muted-foreground leading-relaxed">{r.reviewText}</p>}
+                    <p className="text-[10px] text-muted-foreground/60">{timeAgo(r.createdAt)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Users Tab */}
+        {tab === "users" && (
+          <div className="flex flex-col gap-4">
+            <h2 className="font-bold text-white flex items-center gap-2"><Ban className="w-4 h-4 text-orange-400" /> Ban / Unban Users</h2>
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">Enter a username to ban them from submitting reviews and appearing in content.</p>
+              <div className="flex gap-2">
+                <input type="text" value={banInput} onChange={(e) => setBanInput(e.target.value)} placeholder="Username to ban..." className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50" onKeyDown={(e) => { if (e.key === "Enter" && banInput.trim()) { banUser(banInput.trim()); toast.success(`Banned "${banInput.trim()}"`); setBanInput(""); } }} />
+                <Button className="bg-red-600 hover:bg-red-700 text-white font-bold shrink-0" disabled={!banInput.trim()} onClick={() => { banUser(banInput.trim()); toast.success(`Banned "${banInput.trim()}"`); setBanInput(""); }}><Ban className="w-4 h-4 mr-1.5" /> Ban</Button>
+              </div>
+            </div>
+            {bannedUsers.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground"><CheckCircle className="w-10 h-10 mx-auto mb-3 text-primary/30" /><p>No banned users. Community is clean!</p></div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {bannedUsers.map((u) => (
+                  <div key={u} className="bg-card border border-red-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center"><Ban className="w-4 h-4 text-red-400" /></div>
+                      <span className="font-bold text-white text-sm">{u}</span>
+                      <Badge variant="outline" className="text-[9px] border-red-500/40 text-red-400 bg-red-500/10">BANNED</Badge>
+                    </div>
+                    <button onClick={() => { unbanUser(u); toast.success(`Unbanned ${u}`); }} className="text-xs font-semibold text-green-400 hover:text-green-300 border border-green-500/30 hover:bg-green-500/10 px-3 py-1 rounded-lg transition-all">
+                      <X className="w-3 h-3 inline mr-1" /> Unban
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Trending Tab */}
+        {tab === "trending" && (
+          <div className="flex flex-col gap-4">
+            <h2 className="font-bold text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-primary" /> Manage Trending / Hot Tags</h2>
+            <p className="text-sm text-muted-foreground">Search for an anime and apply a Trending or Hot tag. These appear as badges on anime cards across the site.</p>
+            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><input type="text" value={animeSearch} onChange={(e) => setAnimeSearch(e.target.value)} placeholder="Search anime to tag..." className="w-full bg-secondary border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors" /></div>
+            {searchingAnime && <div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}
+            {animeResults.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {animeResults.map((anime) => {
+                  const tag = trendingTags[String(anime.malId)];
+                  return (
+                    <div key={anime.malId} className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
+                      {anime.image && <img src={anime.image} alt={anime.title} className="w-10 h-14 object-cover rounded-lg shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-white text-sm line-clamp-1">{anime.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {tag ? (<>{tag.tag === "hot" ? <span className="text-[10px] font-bold text-red-400 border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 rounded">🔥 HOT</span> : <span className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/10 px-1.5 py-0.5 rounded">📈 TRENDING</span>}<button onClick={() => { removeTrendingTag(String(anime.malId)); toast.success("Tag removed"); }} className="text-[10px] text-muted-foreground hover:text-red-400 transition-colors"><X className="w-3 h-3 inline" /> Remove</button></>) : <span className="text-[10px] text-muted-foreground">No tag</span>}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => { addTrendingTag(String(anime.malId), "trending"); toast.success(`📈 Tagged "${anime.title}" as Trending`); }} className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-all flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Trending</button>
+                        <button onClick={() => { addTrendingTag(String(anime.malId), "hot"); toast.success(`🔥 Tagged "${anime.title}" as Hot`); }} className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1"><Flame className="w-3 h-3" /> Hot</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {Object.keys(trendingTags).length > 0 && (
+              <div className="mt-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Currently Tagged</h3>
+                <div className="flex flex-col gap-2">
+                  {Object.entries(trendingTags).map(([id, t]) => (
+                    <div key={id} className="bg-card border border-border rounded-xl px-4 py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {t.tag === "hot" ? <span className="text-[10px] font-bold text-red-400 border border-red-500/30 bg-red-500/10 px-2 py-0.5 rounded">🔥 HOT</span> : <span className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/10 px-2 py-0.5 rounded">📈 TRENDING</span>}
+                        <span className="text-sm text-muted-foreground font-mono">ID: {id}</span>
+                      </div>
+                      <button onClick={() => { removeTrendingTag(id); toast.success("Tag removed"); }} className="text-xs text-muted-foreground hover:text-red-400 transition-colors"><X className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

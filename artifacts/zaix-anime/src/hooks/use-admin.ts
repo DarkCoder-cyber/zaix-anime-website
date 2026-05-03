@@ -4,6 +4,7 @@ const ADMIN_PASSWORD = "darkdevil_300";
 const ADMIN_USERNAME = "zaix";
 const ADMIN_TOKEN_KEY = "zaix_admin_token";
 const ADMIN_AUTH_KEY = "zaix_admin_auth";
+const MAINTENANCE_KEY = "zaix_maintenance_mode";
 
 function useLocalStorage<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(() => {
@@ -33,10 +34,27 @@ export function isAdminUsername(username: string) {
   return username.trim().toLowerCase() === ADMIN_USERNAME;
 }
 
+export function isMaintenanceActive(): boolean {
+  try {
+    return JSON.parse(localStorage.getItem(MAINTENANCE_KEY) ?? "false") === true;
+  } catch {
+    return false;
+  }
+}
+
+export function isAdminAuthenticated(): boolean {
+  try {
+    return JSON.parse(localStorage.getItem(ADMIN_AUTH_KEY) ?? "false") === true;
+  } catch {
+    return false;
+  }
+}
+
 export function useAdmin() {
   const [authenticated, setAuthenticated] = useLocalStorage<boolean>(ADMIN_AUTH_KEY, false);
   const [adminToken, setAdminToken] = useLocalStorage<string>(ADMIN_TOKEN_KEY, "");
   const [bannedUsers, setBannedUsers] = useLocalStorage<string[]>("zaix_banned_users", []);
+  const [maintenanceMode, setMaintenanceMode] = useLocalStorage<boolean>(MAINTENANCE_KEY, false);
   const [trendingTags, setTrendingTags] = useLocalStorage<Record<string, { tag: "trending" | "hot"; addedAt: string }>>(
     "zaix_trending_tags",
     {}
@@ -113,6 +131,8 @@ export function useAdmin() {
     adminToken,
     bannedUsers,
     trendingTags,
+    maintenanceMode,
+    setMaintenanceMode,
     login,
     logout,
     banUser,
