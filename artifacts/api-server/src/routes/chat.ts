@@ -1,10 +1,34 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, chatMessagesTable, chatReactionsTable } from "@workspace/db";
+import jwt from "jsonwebtoken";
+import { db, chatMessagesTable, chatReactionsTable, usersTable } from "@workspace/db";
 import { desc, eq, and, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+const JWT_SECRET = process.env.SESSION_SECRET ?? "zaix-anime-secret-key";
 const ALLOWED_REACTIONS = new Set(["👍","❤️","😂","🔥","😮"]);
+
+async function resolveSender(authHeader: string | undefined): Promise<{ name: string; isAdmin: boolean } | null> {
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const token = authHeader.slice(7);
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as any;
+    if (payload.admin === true && payload.username) {
+      return { name: String(payload.username), isAdmin: true };
+    }
+    if (typeof payload.userId === "number") {
+      const [user] = await db
+        .select({ username: usersTable.username })
+        .from(usersTable)
+        .where(eq(usersTable.id, payload.userId))
+        .limit(1);
+      if (user) return { name: user.username, isAdmin: false };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 // GET /api/chat — last 100 messages with reactions
 router.get("/chat", async (req: Request, res: Response) => {
@@ -17,13 +41,11 @@ router.get("/chat", async (req: Request, res: Response) => {
 
     const ordered = msgs.reverse();
 
-    // Aggregate reactions for returned messages
     const ids = ordered.map((m) => m.id);
     const reactions = ids.length
       ? await db.select().from(chatReactionsTable).where(inArray(chatReactionsTable.messageId, ids))
       : [];
 
-    // Group: messageId → emoji → { count, users[] }
     const grouped: Record<number, Record<string, { count: number; users: string[] }>> = {};
     for (const r of reactions) {
       if (!grouped[r.messageId]) grouped[r.messageId] = {};
@@ -48,20 +70,27 @@ router.get("/chat", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/chat — send a message
+// POST /api/chat — send a message (requires valid JWT)
 router.post("/chat", async (req: Request, res: Response) => {
+  const sender = await resolveSender(req.headers.authorization);
+  if (!sender) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const { message } = req.body;
+  if (!message?.trim()) {
+    res.status(400).json({ error: "message is required" });
+    return;
+  }
+
   try {
-    const { userName, message, isAdmin } = req.body;
-    if (!message?.trim()) {
-      res.status(400).json({ error: "message is required" });
-      return;
-    }
     const [inserted] = await db
       .insert(chatMessagesTable)
       .values({
-        userName: String(userName || "Anonymous").trim().slice(0, 50) || "Anonymous",
+        userName: sender.name.trim().slice(0, 50),
         message: String(message).trim().slice(0, 500),
-        isAdmin: !!isAdmin,
+        isAdmin: sender.isAdmin,
         isSystem: false,
       })
       .returning();
@@ -72,14 +101,20 @@ router.post("/chat", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/chat/:id/react — toggle a reaction (returns updated reaction list for that message)
+// POST /api/chat/:id/react — toggle a reaction
 router.post("/chat/:id/react", async (req: Request, res: Response) => {
+  const sender = await resolveSender(req.headers.authorization);
+  if (!sender) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   try {
     const messageId = parseInt(req.params.id);
-    const { userName, emoji } = req.body;
+    const { emoji } = req.body;
 
-    if (!userName?.trim() || !emoji) {
-      res.status(400).json({ error: "userName and emoji are required" }); return;
+    if (!emoji) {
+      res.status(400).json({ error: "emoji is required" }); return;
     }
     if (!ALLOWED_REACTIONS.has(emoji)) {
       res.status(400).json({ error: "Emoji not allowed" }); return;
@@ -88,9 +123,8 @@ router.post("/chat/:id/react", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Invalid message id" }); return;
     }
 
-    const cleanUser = String(userName).trim().slice(0, 50);
+    const cleanUser = sender.name.trim().slice(0, 50);
 
-    // Toggle: delete if exists, insert if not
     const [existing] = await db
       .select({ id: chatReactionsTable.id })
       .from(chatReactionsTable)
@@ -109,7 +143,6 @@ router.post("/chat/:id/react", async (req: Request, res: Response) => {
       await db.insert(chatReactionsTable).values({ messageId, userName: cleanUser, emoji });
     }
 
-    // Return updated reactions for this message
     const updated = await db
       .select()
       .from(chatReactionsTable)

@@ -178,8 +178,8 @@ function ChatMessageRow({
 // ── Live Chat Bubble ──────────────────────────────────────────────────────────
 function LiveChatBubble() {
   const [open, setOpen] = useState(false);
-  const { authenticated: isAdmin } = useAdmin();
-  const { user } = useAuth();
+  const { authenticated: isAdmin, adminToken } = useAdmin();
+  const { user, setModalOpen } = useAuth();
   const [messages, setMessages] = useState<LiveMsg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -189,6 +189,9 @@ function LiveChatBubble() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const myName = isAdmin ? "zaix" : (user?.username ?? "");
+
+  const getAuthToken = () =>
+    isAdmin ? adminToken : (localStorage.getItem("zaix_token") ?? "");
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -211,7 +214,7 @@ function LiveChatBubble() {
   }, [messages, open]);
 
   const send = async () => {
-    if (!input.trim() || sending) return;
+    if (!input.trim() || sending || !myName) return;
     const text = input.trim();
     setInput("");
     setSending(true);
@@ -219,8 +222,11 @@ function LiveChatBubble() {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: myName || "Anonymous", message: text, isAdmin }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({ message: text }),
       });
       if (res.ok) await fetchMessages();
     } catch {} finally { setSending(false); }
@@ -253,8 +259,11 @@ function LiveChatBubble() {
     try {
       await fetch(`/api/chat/${msgId}/react`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: myName, emoji }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({ emoji }),
       });
     } catch {}
   };
@@ -296,34 +305,46 @@ function LiveChatBubble() {
             {showEmoji && (
               <EmojiPicker onPick={insertEmoji} onClose={() => setShowEmoji(false)} />
             )}
-            <div className="flex gap-2 items-center">
+            {!myName ? (
               <button
-                onClick={() => setShowEmoji((v) => !v)}
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-white/10"
-                style={{ color: showEmoji ? "#a855f7" : "rgba(255,255,255,0.35)" }}
+                onClick={() => { setOpen(false); setModalOpen(true); }}
+                className="w-full py-2.5 rounded-full text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.97]"
+                style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.45)", color: "#a855f7" }}
               >
-                <Smile className="w-4 h-4" />
+                Please Login to Join Chat
               </button>
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && send()}
-                placeholder={isAdmin ? "Send as zaix (admin)…" : myName ? "Message the room…" : "Login to chat…"}
-                maxLength={300}
-                disabled={!myName}
-                className="flex-1 bg-secondary rounded-full px-3 py-2 text-sm text-white focus:outline-none transition-all disabled:opacity-50"
-                style={isAdmin
-                  ? { border: "1.5px solid rgba(168,85,247,0.5)", boxShadow: "0 0 8px rgba(168,85,247,0.15)" }
-                  : { border: "1px solid rgba(255,255,255,0.08)" }
-                }
-              />
-              <button onClick={send} disabled={sending || !input.trim() || !myName}
-                className="w-9 h-9 rounded-full text-black flex items-center justify-center shrink-0 disabled:opacity-40 transition-opacity"
-                style={{ background: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.5)" }}>
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            ) : (
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={() => setShowEmoji((v) => !v)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-white/10"
+                  style={{ color: showEmoji ? "#a855f7" : "rgba(255,255,255,0.35)" }}
+                >
+                  <Smile className="w-4 h-4" />
+                </button>
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && send()}
+                  placeholder={isAdmin ? "Send as zaix (admin)…" : "Message the room…"}
+                  maxLength={300}
+                  className="flex-1 bg-secondary rounded-full px-3 py-2 text-sm text-white focus:outline-none transition-all"
+                  style={isAdmin
+                    ? { border: "1.5px solid rgba(168,85,247,0.5)", boxShadow: "0 0 8px rgba(168,85,247,0.15)" }
+                    : { border: "1px solid rgba(255,255,255,0.08)" }
+                  }
+                />
+                <button
+                  onClick={send}
+                  disabled={sending || !input.trim()}
+                  className="w-9 h-9 rounded-full text-black flex items-center justify-center shrink-0 disabled:opacity-40 transition-opacity"
+                  style={{ background: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.5)" }}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
