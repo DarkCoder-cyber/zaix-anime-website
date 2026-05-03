@@ -1,6 +1,6 @@
-const CACHE_NAME = "zaix-v1";
-const STATIC_CACHE = "zaix-static-v1";
-const API_CACHE = "zaix-api-v1";
+const CACHE_VERSION = "v2";
+const STATIC_CACHE = `zaix-static-${CACHE_VERSION}`;
+const API_CACHE = `zaix-api-${CACHE_VERSION}`;
 
 // Assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -48,9 +48,34 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets / pages → stale-while-revalidate
+  // Navigation requests (HTML pages) → network first, fall back to cached "/"
+  if (request.mode === "navigate") {
+    event.respondWith(navigationHandler(request));
+    return;
+  }
+
+  // Static assets → stale-while-revalidate
   event.respondWith(staleWhileRevalidate(request));
 });
+
+async function navigationHandler(request) {
+  const cache = await caches.open(STATIC_CACHE);
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch {
+    // Offline: return cached index.html for SPA routing
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const root = await cache.match("/");
+    if (root) return root;
+    return new Response("<h1>Offline</h1><p>Please check your connection.</p>", {
+      status: 503,
+      headers: { "Content-Type": "text/html" },
+    });
+  }
+}
 
 async function networkFirstAPI(request) {
   const cache = await caches.open(API_CACHE);
@@ -83,7 +108,7 @@ async function staleWhileRevalidate(request) {
   return cached ?? fetchPromise;
 }
 
-// ── Push notifications (future use) ──────────────────────────────────────────
+// ── Push notifications ────────────────────────────────────────────────────────
 self.addEventListener("push", (event) => {
   if (!event.data) return;
   const data = event.data.json();
@@ -91,6 +116,7 @@ self.addEventListener("push", (event) => {
     body: data.body ?? "",
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-96.png",
+    vibrate: [200, 100, 200],
     data: { url: data.url ?? "/" },
   });
 });
@@ -99,9 +125,13 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = event.notification.data?.url ?? "/";
   event.waitUntil(
-    clients.matchAll({ type: "window" }).then((list) => {
-      const existing = list.find((c) => c.url === target && "focus" in c);
-      return existing ? existing.focus() : clients.openWindow(target);
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const existing = list.find((c) => "focus" in c);
+      if (existing) {
+        existing.navigate(target);
+        return existing.focus();
+      }
+      return clients.openWindow(target);
     })
   );
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { MessageCircle, Send, Smile, X, Plus } from "lucide-react";
+import { MessageCircle, Send, Smile, X, Plus, Download } from "lucide-react";
 import { ChatBot } from "@/components/chat-bot";
 import { AdminCrown } from "@/components/admin-badge";
 import { useAdmin } from "@/hooks/use-admin";
@@ -374,6 +374,76 @@ function LiveChatBubble() {
   );
 }
 
+// ── PWA Install Prompt ────────────────────────────────────────────────────────
+function InstallPrompt() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [installed, setInstalled] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem("zaix_install_dismissed") === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    const onPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setDeferredPrompt(null);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  if (!deferredPrompt || dismissed || installed) return null;
+
+  const handleInstall = async () => {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") setDeferredPrompt(null);
+  };
+
+  const handleDismiss = () => {
+    try { localStorage.setItem("zaix_install_dismissed", "1"); } catch {}
+    setDismissed(true);
+  };
+
+  return (
+    <div className="fixed bottom-44 right-4 sm:right-6 z-50 max-w-[280px]">
+      <div className="rounded-2xl border overflow-hidden"
+        style={{ background: "rgba(10,10,10,0.97)", borderColor: "rgba(168,85,247,0.4)", boxShadow: "0 0 40px rgba(168,85,247,0.2), 0 12px 40px rgba(0,0,0,0.7)", backdropFilter: "blur(24px)" }}>
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-3 border-b"
+          style={{ borderColor: "rgba(168,85,247,0.15)", background: "rgba(168,85,247,0.05)" }}>
+          <div className="flex items-center gap-2">
+            <img src="/icons/icon-72.png" alt="Zaix" className="w-6 h-6 rounded-lg" />
+            <span className="text-sm font-black text-white">Zaix Anime</span>
+          </div>
+          <button onClick={handleDismiss} className="text-muted-foreground hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {/* Body */}
+        <div className="px-4 py-3">
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            Install the app for the full experience — faster load, offline access &amp; home screen shortcut.
+          </p>
+          <button onClick={handleInstall}
+            className="w-full py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.97]"
+            style={{ background: "linear-gradient(135deg, #a855f7, #7c3aed)", boxShadow: "0 0 20px rgba(168,85,247,0.35)" }}>
+            <Download className="w-4 h-4" />
+            Install App
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Custom cursor ─────────────────────────────────────────────────────────────
 function Cursor() {
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -388,4 +458,4 @@ function Cursor() {
   return <div className="neon-cursor" style={{ transform: `translate(${pos.x}px, ${pos.y}px) scale(${visible ? 1 : 0})` }} />;
 }
 
-export function GlobalUI() { return <><Cursor /><LiveChatBubble /><ChatBot /></>; }
+export function GlobalUI() { return <><Cursor /><InstallPrompt /><LiveChatBubble /><ChatBot /></>; }

@@ -17,12 +17,14 @@ import streamReportsRouter from "./stream-reports";
 import proxyImageRouter from "./proxy-image";
 import xpRouter from "./xp";
 import leaderboardRouter from "./leaderboard";
+import customStreamsRouter from "./custom-streams";
 
 const router: IRouter = Router();
 
 router.use(proxyImageRouter);
 router.use(xpRouter);
 router.use(leaderboardRouter);
+router.use(customStreamsRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(animeRouter);

@@ -11,6 +11,7 @@ import ReadPage from "@/pages/read";
 import SchedulePage from "@/pages/schedule";
 import WatchPartyPage from "@/pages/watch-party";
 import AdminPage from "@/pages/admin";
+import AdminUploadPage from "@/pages/admin-upload";
 import ProfilePage from "@/pages/profile";
 import LeaderboardPage from "@/pages/leaderboard";
 import TosPage from "@/pages/tos";
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/schedule" component={SchedulePage} />
       <Route path="/watch-party" component={WatchPartyPage} />
       <Route path="/xadmin" component={AdminPage} />
+      <Route path="/admin-upload" component={AdminUploadPage} />
       <Route path="/profile/:username" component={ProfilePage} />
       <Route path="/leaderboard" component={LeaderboardPage} />
       <Route path="/tos" component={TosPage} />
