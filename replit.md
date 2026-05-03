@@ -26,6 +26,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
+## Workflows
+- **Zaix Anime** — Vite dev server on port 3000, `PORT=3000 BASE_PATH=/ pnpm --filter @workspace/zaix-anime run dev`
+- **API Server** — Express API on port 8080, `PORT=8080 pnpm --filter @workspace/api-server run dev`
+
 ## Artifacts
 
 ### Zaix Anime (`artifacts/zaix-anime`)
@@ -33,6 +37,7 @@ Full-screen anime/manga streaming & reading platform. Neon green & black UI.
 - **Frontend**: React + Vite + Tailwind + shadcn/ui + wouter routing
 - **Auth**: JWT-based (stored in localStorage as `zaix_token`), bcryptjs password hashing. Admin token payload: `{ admin, username, role }`. User token payload: `{ userId }`.
 - **Pages**: Home (`/`), Watch (`/watch/:id`), Manga Detail (`/manga/:id`), In-App Reader (`/read/:mangaId/:chapterId`), Profile (`/profile/:username`), ToS (`/tos`), DMCA (`/dmca`), Contact (`/contact`)
+- **Doraemon Universe Row**: Dedicated horizontal scrolling row on homepage (always visible above content tabs). Fetches Doraemon TV + Movies from Jikan via `/api/anime/search?q=doraemon`. Sky Blue (#00bfff) neon glow title, 🇮🇳 HI badge on each card, sky-blue hover effects via `accentColor` prop on AnimeCard.
 - **Home Tabs**: Anime | Manga | Manhwa | Donghua — each tab loads its own content
 - **Components**: Navbar (glassmorphism on scroll), AnimeCard (with WatchlistButton), MangaCard, ChatBot, AuthModal (glassmorphism), WatchlistButton (status dropdown), ReviewSection (with ReplySection), NotificationBell (DB-backed for logged-in, localStorage fallback for guests)
 - **Watchlist**: DB-backed for logged-in users (`useWatchlist` hook), localStorage fallback for guests

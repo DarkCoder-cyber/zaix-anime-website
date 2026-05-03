@@ -40,10 +40,15 @@ interface SeasonEntry {
 
 type LangFilter = "sub" | "dub" | "hindi" | "raw";
 
-const LANG_OPTIONS: { key: LangFilter; label: string; color: string }[] = [
+const LANG_OPTIONS: { key: LangFilter; label: string; color: string; activeStyle?: React.CSSProperties }[] = [
   { key: "sub", label: "Sub", color: "text-primary border-primary/40" },
   { key: "dub", label: "Eng Dub", color: "text-blue-400 border-blue-400/40" },
-  { key: "hindi", label: "Hindi Dub", color: "text-orange-400 border-orange-400/40" },
+  {
+    key: "hindi",
+    label: "🇮🇳 Hindi Dub",
+    color: "border-[#00bfff]/40",
+    activeStyle: { color: "#00bfff", borderColor: "rgba(0,191,255,0.55)", background: "rgba(0,191,255,0.08)", boxShadow: "0 0 10px rgba(0,191,255,0.25)" },
+  },
   { key: "raw", label: "Raw", color: "text-muted-foreground border-border" },
 ];
 
@@ -544,6 +549,12 @@ export default function WatchPage() {
     toast.success(next ? "Auto-Play enabled" : "Auto-Play disabled");
   };
 
+  const isDoraemon = useMemo(() => (anime as any)?.title?.toLowerCase().includes("doraemon") ?? false, [anime]);
+
+  useEffect(() => {
+    if (isDoraemon) setLangFilter("hindi");
+  }, [isDoraemon]);
+
   const currentProvider = streamData?.providers?.find(p => p.name === activeProvider) ?? streamData?.providers?.[0] ?? null;
   const currentEmbedUrl = currentProvider?.url ?? null;
   const directLink = typeof window !== "undefined" ? `${window.location.origin}/watch/${malId}` : `/watch/${malId}`;
@@ -786,6 +797,28 @@ export default function WatchPage() {
                 </div>
               </div>
 
+              {/* Hindi Dub Available Banner */}
+              {isDoraemon && langFilter === "hindi" && (
+                <div
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold animate-in fade-in duration-300"
+                  style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.35)", color: "#00bfff", boxShadow: "0 0 16px rgba(0,191,255,0.12)" }}
+                >
+                  <span className="text-lg">🇮🇳</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[13px]">Hindi Dub Selected</span>
+                    <span className="text-[11px] opacity-75 font-normal" style={{ color: "#00bfff" }}>
+                      Doraemon is available in Hindi Dubbed audio
+                    </span>
+                  </div>
+                  <span
+                    className="ml-auto text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0"
+                    style={{ background: "rgba(0,191,255,0.18)", border: "1px solid rgba(0,191,255,0.45)" }}
+                  >
+                    HINDI AUDIO
+                  </span>
+                </div>
+              )}
+
               {/* Server Switcher */}
               <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
@@ -853,12 +886,23 @@ export default function WatchPage() {
                   <Tv className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <span className="text-xs text-muted-foreground">Language:</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {LANG_OPTIONS.map((opt) => (
-                      <button key={opt.key} onClick={() => setLangFilter(opt.key)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${langFilter === opt.key ? `bg-primary/10 ${opt.color} border-current shadow-neon` : "bg-transparent border-border text-muted-foreground hover:text-white hover:border-white/30"}`}>
-                        {opt.label}
-                      </button>
-                    ))}
+                    {LANG_OPTIONS.map((opt) => {
+                      const isActive = langFilter === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          onClick={() => setLangFilter(opt.key)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                            isActive
+                              ? opt.activeStyle ? "" : `bg-primary/10 ${opt.color} border-current shadow-neon`
+                              : "bg-transparent border-border text-muted-foreground hover:text-white hover:border-white/30"
+                          }`}
+                          style={isActive && opt.activeStyle ? opt.activeStyle : undefined}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

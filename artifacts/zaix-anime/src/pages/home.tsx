@@ -43,6 +43,14 @@ async function fetchDonghua() {
   });
 }
 
+async function fetchDoraemon() {
+  return cachedFetchJson("doraemon-universe", async () => {
+    const res = await fetch(`/api/anime/search?q=doraemon&limit=20`);
+    if (!res.ok) throw new Error(`Jikan returned ${res.status}`);
+    return res.json();
+  });
+}
+
 const TAB_CONFIG: { key: ContentTab; label: string; emoji: string }[] = [
   { key: "anime", label: "Anime", emoji: "🎌" },
   { key: "manga", label: "Manga", emoji: "📚" },
@@ -195,6 +203,7 @@ export default function Home() {
   const { data: mangaData, isLoading: mangaLoading, error: mangaError } = useQuery({ queryKey: ["manga-trending", "manga"], queryFn: () => fetchMangaTrending("manga"), enabled: activeTab === "manga", retry: 1 });
   const { data: manhwaData, isLoading: manhwaLoading, error: manhwaError } = useQuery({ queryKey: ["manga-trending", "manhwa"], queryFn: () => fetchMangaTrending("manhwa"), enabled: activeTab === "manhwa", retry: 1 });
   const { data: donghuaData, isLoading: donghuaLoading, error: donghuaError } = useQuery({ queryKey: ["donghua"], queryFn: fetchDonghua, enabled: activeTab === "donghua", retry: 1 });
+  const { data: doraemonData, isLoading: doraemonLoading } = useQuery({ queryKey: ["doraemon-universe"], queryFn: fetchDoraemon, staleTime: 30 * 60 * 1000, retry: 1 });
 
   // DB-backed Continue Watching for logged-in users
   const { data: watchlistData } = useQuery({
@@ -230,6 +239,9 @@ export default function Home() {
   const donghuaList = donghuaData?.data ?? [];
   const recommendedAnime = recommendationsData?.data ?? [];
   const recommendedGenre = recommendationsData?.genre ?? recGenre;
+  const doraemonList: any[] = (doraemonData?.data ?? []).filter((a: any) =>
+    a.title?.toLowerCase().includes("doraemon")
+  );
 
   const dbWatchingItems = (watchlistData?.items ?? []).filter((i: any) => i.status === "watching" && i.contentType === "anime");
 
@@ -460,6 +472,64 @@ export default function Home() {
                   <ExternalLink className="w-3 h-3" /> View full watchlist
                 </button>
               </Link>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Doraemon Universe Row */}
+      {(doraemonLoading || doraemonList.length > 0) && (
+        <section className="py-10 container mx-auto px-4">
+          <div className="flex flex-col gap-1 mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🤖</span>
+              <h2
+                className="text-2xl sm:text-3xl font-bold font-heading"
+                style={{ color: "#00bfff", textShadow: "0 0 18px rgba(0,191,255,0.55)" }}
+              >
+                Doraemon Universe
+              </h2>
+              <div
+                className="h-px flex-1 mt-1"
+                style={{ background: "linear-gradient(to right, rgba(0,191,255,0.6), transparent)", boxShadow: "0 0 8px rgba(0,191,255,0.3)" }}
+              />
+            </div>
+            <p className="text-muted-foreground text-sm flex items-center gap-1.5">
+              🇮🇳 Hindi Dubbed
+              <span className="text-white/20">·</span>
+              Episodes &amp; Movies
+              <span
+                className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(0,191,255,0.12)", color: "#00bfff", border: "1px solid rgba(0,191,255,0.35)" }}
+              >
+                HINDI AUDIO
+              </span>
+            </p>
+          </div>
+
+          {doraemonLoading ? (
+            <div className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="shrink-0 w-32 sm:w-36">
+                  <Skeleton className="aspect-[3/4] rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {doraemonList.map((anime: any) => (
+                <div key={anime.malId} className="shrink-0 w-32 sm:w-36 md:w-40">
+                  <AnimeCard
+                    anime={anime}
+                    layout="trending"
+                    showHindiBadge
+                    accentColor="#00bfff"
+                  />
+                </div>
+              ))}
             </div>
           )}
         </section>
