@@ -1,10 +1,28 @@
-import { useState, useEffect, useRef } from "react";
-import { Music, Music2, VolumeX, Volume2, X, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useRef } from "react";
+import { Music, Music2, VolumeX, Volume2, X, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 
 const STATIONS = [
-  { label: "Lofi Girl", id: "jfKfPfyJRdk" },
-  { label: "Phonk Vibes", id: "nqkJKbxHKQU" },
-  { label: "Anime OST", id: "sqS_JMnIyps" },
+  {
+    label: "Lofi Girl",
+    ids: [
+      "jfKfPfyJRdk", // Official Lofi Girl 24/7 live stream
+      "5qap5aO4i9A", // Lofi Hip Hop Radio — backup
+    ],
+  },
+  {
+    label: "Phonk Vibes",
+    ids: [
+      "r80Hmv0Y7Uk", // 1 Hour Phonk Mix — verified embeddable
+      "6S1rMN4zrm8", // Dark Phonk Mix — backup
+    ],
+  },
+  {
+    label: "Anime OST",
+    ids: [
+      "KHuADlEVNSE", // Best Anime OSTs 2-hour compilation
+      "dFiSLONBHEA", // Lofi Anime Study Mix — backup
+    ],
+  },
 ];
 
 export function MusicPlayer() {
@@ -12,19 +30,37 @@ export function MusicPlayer() {
   const [muted, setMuted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [stationIdx, setStationIdx] = useState(0);
+  const [idxOverride, setIdxOverride] = useState<number[]>(STATIONS.map(() => 0));
+  const [refreshKey, setRefreshKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const station = STATIONS[stationIdx];
+  const activeIdIdx = idxOverride[stationIdx];
+  const activeId = station.ids[activeIdIdx];
+
   const src = enabled
-    ? `https://www.youtube.com/embed/${station.id}?autoplay=1&mute=${muted ? 1 : 0}&controls=1&rel=0&showinfo=0&enablejsapi=1`
+    ? `https://www.youtube.com/embed/${activeId}?autoplay=1&mute=${muted ? 1 : 0}&controls=1&rel=0&showinfo=0&modestbranding=1&enablejsapi=1`
     : "";
 
-  // Reset iframe when station changes
-  const iframeKey = `${stationIdx}-${enabled}`;
+  const iframeKey = `${stationIdx}-${activeIdIdx}-${enabled}-${refreshKey}`;
+
+  const handleRefresh = () => {
+    const next = (activeIdIdx + 1) % station.ids.length;
+    setIdxOverride((prev) => {
+      const updated = [...prev];
+      updated[stationIdx] = next;
+      return updated;
+    });
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleStationChange = (i: number) => {
+    setStationIdx(i);
+  };
 
   return (
     <>
-      {/* Floating toggle button (always visible) */}
+      {/* Floating toggle button in navbar */}
       <button
         onClick={() => {
           if (!enabled) {
@@ -39,7 +75,7 @@ export function MusicPlayer() {
             ? "text-primary bg-primary/10 hover:bg-primary/20"
             : "text-foreground/80 hover:text-primary hover:bg-primary/10"
         }`}
-        title={enabled ? "Music playing" : "Play background music"}
+        title={enabled ? "Music playing — click to toggle" : "Play background music"}
         aria-label="Background music"
       >
         {enabled ? (
@@ -52,7 +88,7 @@ export function MusicPlayer() {
         )}
       </button>
 
-      {/* Floating player panel */}
+      {/* Expanded player panel */}
       {enabled && !collapsed && (
         <div className="fixed bottom-20 right-4 z-50 w-72 bg-black/95 backdrop-blur-xl border border-primary/30 rounded-xl shadow-neon-intense overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* Header */}
@@ -63,6 +99,13 @@ export function MusicPlayer() {
             </div>
             <div className="flex items-center gap-1">
               <button
+                onClick={handleRefresh}
+                className="p-1 rounded text-muted-foreground hover:text-yellow-400 transition-colors"
+                title={`Switch to backup link (${activeIdIdx === 0 ? "backup" : "primary"})`}
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+              <button
                 onClick={() => setMuted((m) => !m)}
                 className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
                 title={muted ? "Unmute" : "Mute"}
@@ -72,12 +115,14 @@ export function MusicPlayer() {
               <button
                 onClick={() => setCollapsed(true)}
                 className="p-1 rounded text-muted-foreground hover:text-white transition-colors"
+                title="Minimize"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setEnabled(false)}
                 className="p-1 rounded text-muted-foreground hover:text-red-400 transition-colors"
+                title="Close"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -88,8 +133,8 @@ export function MusicPlayer() {
           <div className="flex gap-1 px-3 pt-2">
             {STATIONS.map((s, i) => (
               <button
-                key={s.id}
-                onClick={() => setStationIdx(i)}
+                key={i}
+                onClick={() => handleStationChange(i)}
                 className={`flex-1 text-[10px] font-semibold py-1 rounded transition-all ${
                   i === stationIdx
                     ? "bg-primary text-black shadow-neon"
@@ -102,21 +147,22 @@ export function MusicPlayer() {
           </div>
 
           {/* YouTube iframe */}
-          <div className="relative mt-2 mx-3 mb-3 rounded-lg overflow-hidden aspect-video bg-black border border-primary/10">
+          <div className="relative mt-2 mx-3 mb-1 rounded-lg overflow-hidden aspect-video bg-black border border-primary/10">
             {enabled && (
               <iframe
                 key={iframeKey}
                 ref={iframeRef}
                 src={src}
                 className="w-full h-full"
-                allow="autoplay; encrypted-media"
-                title="Background music"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+                title={`${station.label} background music`}
               />
             )}
           </div>
 
-          {/* Now playing label */}
-          <div className="px-3 pb-3 -mt-1">
+          {/* Now playing + refresh hint */}
+          <div className="px-3 pb-3 pt-1 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex gap-0.5 items-end h-4">
                 {[1, 2, 3, 4].map((i) => (
@@ -129,6 +175,9 @@ export function MusicPlayer() {
               </div>
               <span className="text-[10px] text-primary">Now playing: {station.label}</span>
             </div>
+            {activeIdIdx > 0 && (
+              <span className="text-[9px] text-yellow-400/70 font-mono">backup link</span>
+            )}
           </div>
         </div>
       )}
