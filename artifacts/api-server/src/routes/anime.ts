@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { HiAnime } from "aniwatch";
 
 const router: IRouter = Router();
 
@@ -28,15 +29,21 @@ function mapAnimeCard(item: any) {
   };
 }
 
-// In-memory ID mapping cache (MAL ID → {imdbId, anilistId, ...}) — refreshed daily
+// Genre name → Jikan genre ID mapping
+const GENRE_MAP: Record<string, number> = {
+  Action: 1, Adventure: 2, Comedy: 4, Drama: 8, Fantasy: 10,
+  Horror: 14, Mystery: 7, Romance: 22, "Sci-Fi": 24, "Slice of Life": 36,
+  Sports: 30, Supernatural: 37, Thriller: 41, Mecha: 18, School: 23,
+  Isekai: 62, Military: 38, Harem: 35, Shounen: 27, Seinen: 42,
+};
+
+// In-memory ID mapping cache
 const idCache = new Map<number, { data: any; expiresAt: number }>();
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 async function getIdMappings(malId: number): Promise<any> {
   const cached = idCache.get(malId);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.data;
-  }
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
   const res = await fetch(`${ARM_BASE}/ids?source=myanimelist&id=${malId}`);
   if (!res.ok) throw new Error(`ARM API error: ${res.status}`);
   const data = await res.json();
@@ -44,47 +51,49 @@ async function getIdMappings(malId: number): Promise<any> {
   return data;
 }
 
-// Build all provider embed URLs for a given set of IDs
 function buildProviderUrls(imdbId: string | null, malId: number, episode: number, season: number) {
   const providers: { name: string; url: string; label: string }[] = [];
 
-  // 2embed — works with IMDB IDs for TV shows
+  // HiAnime player (served from our own /api/anime/player endpoint)
+  providers.push({
+    name: "hianime",
+    label: "HiAnime HD",
+    url: `/api/anime/player?malId=${malId}&episode=${episode}`,
+  });
+
   if (imdbId) {
     providers.push({
       name: "2embed",
       label: "2Embed",
       url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}`,
     });
-  }
-
-  // embed.su — works with IMDB IDs
-  if (imdbId) {
     providers.push({
       name: "embedsu",
       label: "EmbedSu",
       url: `https://embed.su/embed/tv/${imdbId}/${season}/${episode}`,
     });
-  }
-
-  // vidsrc.xyz — alternative vidsrc that is still active
-  if (imdbId) {
     providers.push({
       name: "vidsrc_xyz",
       label: "VidSrc",
       url: `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}`,
     });
-  }
-
-  // smashystream — works with IMDB
-  if (imdbId) {
+    providers.push({
+      name: "vidsrc_pro",
+      label: "VidSrc Pro",
+      url: `https://vidsrc.pro/embed/tv/${imdbId}/${season}/${episode}`,
+    });
     providers.push({
       name: "smashystream",
       label: "SmashyStream",
       url: `https://player.smashy.stream/tv/${imdbId}?s=${season}&e=${episode}`,
     });
+    providers.push({
+      name: "multiembed",
+      label: "MultiEmbed",
+      url: `https://multiembed.mov/?video_id=${imdbId}&tmdb=0&s=${season}&e=${episode}`,
+    });
   }
 
-  // anime-specific: aniwatchtv via AllAnime embed (MAL-based), no IMDB needed
   providers.push({
     name: "animepahe",
     label: "AnimePahe",
@@ -93,6 +102,11 @@ function buildProviderUrls(imdbId: string | null, malId: number, episode: number
 
   return providers;
 }
+
+// GET /api/anime/genres — return genre list for filters
+router.get("/anime/genres", (_req: Request, res: Response) => {
+  res.json({ genres: Object.keys(GENRE_MAP) });
+});
 
 // GET /api/anime/trending
 router.get("/anime/trending", async (req: Request, res: Response) => {
@@ -134,7 +148,7 @@ router.get("/anime/recent", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/anime/search?q=...
+// GET /api/anime/search?q=...&genre=Action&year=2023&orderBy=score&minScore=7
 router.get("/anime/search", async (req: Request, res: Response) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -143,7 +157,27 @@ router.get("/anime/search", async (req: Request, res: Response) => {
       return;
     }
     const page = Math.max(1, parseInt(String(req.query.page || "1")));
-    const data = await jikanFetch(`/anime?q=${encodeURIComponent(q)}&page=${page}&limit=16`);
+    const genre = String(req.query.genre || "").trim();
+    const year = parseInt(String(req.query.year || "")) || null;
+    const orderBy = String(req.query.orderBy || "").trim(); // score | members | start_date
+    const minScore = parseFloat(String(req.query.minScore || "")) || null;
+
+    let jikanUrl = `/anime?q=${encodeURIComponent(q)}&page=${page}&limit=16`;
+
+    if (genre && GENRE_MAP[genre]) {
+      jikanUrl += `&genres=${GENRE_MAP[genre]}`;
+    }
+    if (year) {
+      jikanUrl += `&start_date=${year}-01-01&end_date=${year}-12-31`;
+    }
+    if (minScore && minScore > 0 && minScore <= 10) {
+      jikanUrl += `&min_score=${minScore}`;
+    }
+    if (orderBy === "score" || orderBy === "members" || orderBy === "start_date") {
+      jikanUrl += `&order_by=${orderBy}&sort=desc`;
+    }
+
+    const data = await jikanFetch(jikanUrl);
     res.json({
       data: (data.data ?? []).map(mapAnimeCard),
       pagination: {
@@ -181,9 +215,111 @@ router.get("/anime/ids", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/anime/player?malId=X&episode=Y — serves an HTML5 HLS player using real HiAnime streams
+router.get("/anime/player", async (req: Request, res: Response) => {
+  const malId = parseInt(String(req.query.malId || ""));
+  const episode = parseInt(String(req.query.episode || "1"));
+  const category = String(req.query.category || "sub") as "sub" | "dub" | "raw";
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+
+  try {
+    // 1. Get anime title from Jikan
+    const jikanData = await jikanFetch(`/anime/${malId}`);
+    const title: string = jikanData.data?.title_english || jikanData.data?.title || "Unknown";
+
+    // 2. Search HiAnime via aniwatch
+    const scraper = new HiAnime.Scraper();
+    const searchResult = await scraper.search(title);
+    const animeEntry = searchResult.animes?.[0];
+    if (!animeEntry?.id) throw new Error(`"${title}" not found on HiAnime`);
+
+    // 3. Get episode list
+    const epsResult = await scraper.getAnimeEpisodes(animeEntry.id);
+    const ep = epsResult.episodes?.[episode - 1];
+    if (!ep?.episodeId) throw new Error(`Episode ${episode} not available on HiAnime`);
+
+    // 4. Get episode servers
+    const serversResult = await scraper.getEpisodeServers(ep.episodeId);
+    const servers = serversResult[category] ?? serversResult.sub ?? [];
+    const server = servers[0]?.serverName as any ?? "hd-1";
+
+    // 5. Get HLS sources
+    const sourcesResult = await scraper.getEpisodeSources(ep.episodeId, server, category);
+    const hlsSrc = sourcesResult.sources?.find((s: any) => s.isM3U8)?.url
+      || sourcesResult.sources?.[0]?.url
+      || "";
+
+    if (!hlsSrc) throw new Error("No streaming sources found");
+
+    const tracks = (sourcesResult.tracks ?? []).filter((t: any) => t.kind === "captions" || t.kind === "subtitles");
+    const defaultTrack = tracks.find((t: any) => t.label === "English") ?? tracks[0] ?? null;
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} — Episode ${episode}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+  video { width: 100%; height: 100vh; display: block; object-fit: contain; }
+  #status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #39ff14; font-family: sans-serif; font-size: 14px; gap: 12px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid rgba(57,255,20,.3); border-top-color: #39ff14; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="status"><div class="spinner"></div><span>Loading stream…</span></div>
+<video id="vid" controls crossorigin="anonymous" playsinline preload="auto">
+  ${tracks.map((t: any) => `<track kind="${t.kind}" src="${t.file}" label="${t.label ?? t.kind}"${t === defaultTrack ? " default" : ""}>`).join("")}
+</video>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
+<script>
+(function() {
+  var vid = document.getElementById("vid");
+  var status = document.getElementById("status");
+  var src = ${JSON.stringify(hlsSrc)};
+  function onReady() { status.style.display = "none"; }
+  vid.addEventListener("canplay", onReady, { once: true });
+  if (src && window.Hls && Hls.isSupported()) {
+    var hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+    hls.loadSource(src);
+    hls.attachMedia(vid);
+    hls.on(Hls.Events.MANIFEST_PARSED, function() { vid.play().catch(function(){}); onReady(); });
+    hls.on(Hls.Events.ERROR, function(_, d) { if (d.fatal) status.innerHTML = '<span style="color:#ff4444">Stream error. Try another server.</span>'; });
+  } else if (vid.canPlayType("application/vnd.apple.mpegurl")) {
+    vid.src = src;
+    vid.addEventListener("loadedmetadata", function() { vid.play().catch(function(){}); });
+  } else {
+    status.innerHTML = '<span style="color:#ff4444">Your browser does not support HLS playback.</span>';
+  }
+})();
+</script>
+</body>
+</html>`);
+  } catch (err: any) {
+    req.log.error({ err }, "HiAnime player failed");
+    res.send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  body{background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px;}
+  .icon{font-size:48px;margin-bottom:16px;}
+  h2{color:#39ff14;margin-bottom:8px;font-size:18px;}
+  p{color:#888;font-size:13px;margin-bottom:16px;}
+  .hint{color:#39ff14;font-size:12px;border:1px solid rgba(57,255,20,.3);padding:8px 16px;border-radius:20px;display:inline-block;}
+</style></head>
+<body><div>
+  <div class="icon">📡</div>
+  <h2>HiAnime stream unavailable</h2>
+  <p>${String(err?.message ?? "Could not fetch stream").replace(/[<>]/g, "")}</p>
+  <span class="hint">Switch to another server above ↑</span>
+</div></body></html>`);
+  }
+});
+
 // GET /api/anime/stream?malId=...&episode=1&season=1
-// Returns multiple embed URLs from different providers — ready to load in an iframe
-// MUST be before /:malId
 router.get("/anime/stream", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(String(req.query.malId || ""));
@@ -195,14 +331,11 @@ router.get("/anime/stream", async (req: Request, res: Response) => {
       return;
     }
 
-    // Try to get IMDB ID from ARM (best effort — some anime have no mapping)
     let imdbId: string | null = null;
     try {
       const mappings = await getIdMappings(malId);
       imdbId = mappings.imdb ?? null;
-    } catch {
-      // ARM lookup failed — continue with MAL-only providers
-    }
+    } catch {}
 
     const providers = buildProviderUrls(imdbId, malId, episode, season);
 
@@ -211,16 +344,7 @@ router.get("/anime/stream", async (req: Request, res: Response) => {
       return;
     }
 
-    res.json({
-      malId,
-      episode,
-      season,
-      imdbId,
-      // Primary embed URL (first available provider)
-      embedUrl: providers[0].url,
-      // All provider options for the frontend switcher
-      providers,
-    });
+    res.json({ malId, episode, season, imdbId, embedUrl: providers[0].url, providers });
   } catch (err: any) {
     req.log.error({ err }, "Failed to resolve stream embed");
     res.status(500).json({ error: "Failed to resolve streaming embed URL" });
@@ -257,7 +381,7 @@ router.get("/anime/schedule", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/anime/:malId — Anime detail (must come AFTER static routes)
+// GET /api/anime/:malId
 router.get("/anime/:malId", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(req.params.malId);
@@ -267,10 +391,7 @@ router.get("/anime/:malId", async (req: Request, res: Response) => {
     }
     const data = await jikanFetch(`/anime/${malId}/full`);
     const a = data.data;
-    if (!a) {
-      res.status(404).json({ error: "Anime not found" });
-      return;
-    }
+    if (!a) { res.status(404).json({ error: "Anime not found" }); return; }
     res.json({
       malId: a.mal_id,
       title: a.title_english || a.title,
@@ -298,7 +419,7 @@ router.get("/anime/:malId", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/anime/:malId/seasons — returns related seasons/sequels from Jikan relations
+// GET /api/anime/:malId/seasons
 router.get("/anime/:malId/seasons", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(req.params.malId);
@@ -312,7 +433,6 @@ router.get("/anime/:malId/seasons", async (req: Request, res: Response) => {
     const currentTitle: string = animeData.data?.title_english || animeData.data?.title || "";
     const currentImage = animeData.data?.images?.jpg?.large_image_url || animeData.data?.images?.jpg?.image_url;
 
-    // Collect season entries: Sequel, Prequel, Alternative version, Full story
     const SEASON_RELATIONS = ["Sequel", "Prequel", "Alternative version", "Parent story", "Full story"];
     const relatedEntries: any[] = [];
     for (const rel of (relationsData.data ?? [])) {
@@ -325,15 +445,11 @@ router.get("/anime/:malId/seasons", async (req: Request, res: Response) => {
       }
     }
 
-    // Build season list: current season + related
     const seasons = [
       { malId, title: currentTitle, image: currentImage, relation: "Current", isCurrent: true },
       ...relatedEntries.map((e) => ({
-        malId: e.malId,
-        title: e.title,
-        image: null as string | null,
-        relation: e.relation,
-        isCurrent: false,
+        malId: e.malId, title: e.title, image: null as string | null,
+        relation: e.relation, isCurrent: false,
       })),
     ];
 
@@ -348,10 +464,7 @@ router.get("/anime/:malId/seasons", async (req: Request, res: Response) => {
 router.get("/anime/:malId/episodes", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(req.params.malId);
-    if (isNaN(malId)) {
-      res.status(400).json({ error: "Invalid malId" });
-      return;
-    }
+    if (isNaN(malId)) { res.status(400).json({ error: "Invalid malId" }); return; }
     const page = Math.max(1, parseInt(String(req.query.page || "1")));
     const data = await jikanFetch(`/anime/${malId}/episodes?page=${page}`);
     res.json({

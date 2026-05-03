@@ -15,6 +15,7 @@ import { Navbar } from "@/components/navbar";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
 import { GlobalUI } from "@/components/global-ui";
+import { GlobalAlertBanner } from "@/components/global-alert-banner";
 import { isMaintenanceActive, isAdminAuthenticated } from "@/hooks/use-admin";
 import { useEffect, useState } from "react";
 
@@ -23,11 +24,9 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 5 
 function MaintenanceScreen() {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
-      <div className="relative mb-8">
-        <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
-          style={{ background: "radial-gradient(circle, rgba(57,255,20,0.15) 0%, transparent 70%)", border: "2px solid rgba(57,255,20,0.4)", boxShadow: "0 0 40px rgba(57,255,20,0.3)" }}>
-          <span className="text-5xl">⚡</span>
-        </div>
+      <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
+        style={{ background: "radial-gradient(circle, rgba(57,255,20,0.15) 0%, transparent 70%)", border: "2px solid rgba(57,255,20,0.4)", boxShadow: "0 0 40px rgba(57,255,20,0.3)" }}>
+        <span className="text-5xl">⚡</span>
       </div>
       <h1 className="text-4xl sm:text-6xl font-black font-heading text-white tracking-tight mb-3"
         style={{ textShadow: "0 0 30px rgba(57,255,20,0.5)" }}>
@@ -76,13 +75,12 @@ function AppShell() {
     return () => clearInterval(id);
   }, []);
 
-  if (maintenance && !isAdmin) {
-    return <MaintenanceScreen />;
-  }
+  if (maintenance && !isAdmin) return <MaintenanceScreen />;
 
   return (
     <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-      <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-black">
+      <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-black flex flex-col">
+        <GlobalAlertBanner />
         <Navbar />
         <Router />
         <GlobalUI />
