@@ -497,9 +497,45 @@ export default function WatchPage() {
       titleLower.includes("shinchan") ||
       titleLower.includes("crayon shin");
 
-    // ── Hindi + Doraemon/Shinchan: bypass ALL external APIs, use registry only ──
+    // ── Step 1: always fetch custom DB streams first (any anime, any language) ──
+    let customProviders: StreamProvider[] = [];
+    try {
+      const customRes = await fetch(`/api/streams/custom?malId=${malId}&episode=${epNumber}`);
+      if (customRes.ok) {
+        const customData = await customRes.json();
+        const dbStreams: any[] = customData.streams ?? [];
+        const langMatched = dbStreams.filter((s: any) => {
+          if (lang === "hindi") return s.language === "hindi";
+          if (lang === "dub") return s.language === "english" || s.language === "dub";
+          if (lang === "raw") return s.language === "raw";
+          return s.language === "sub" || s.language === "subbed";
+        });
+        customProviders = langMatched.map((s: any, i: number) => ({
+          name: `custom_${s.id ?? i}`,
+          label: s.providerLabel || `🇮🇳 ${s.quality || "HD"} Server ${i + 1}`,
+          url: s.streamUrl,
+        }));
+      }
+    } catch { }
+
+    // ── Step 2: Hindi + Doraemon/Shinchan path — DB streams first, registry as fallback ──
     if (lang === "hindi" && isHindiDubTitle) {
       try {
+        if (customProviders.length > 0) {
+          setStreamData({
+            malId, episode: epNumber, season: 1, imdbId: null,
+            embedUrl: customProviders[0].url,
+            providers: customProviders,
+            lang: "hindi", isHindi: true,
+            isDoraemon: titleLower.includes("doraemon"),
+          });
+          setActiveProvider(customProviders[0].name);
+          startPlayerTimer();
+          if (customProviders.length > 1) startFailoverTimer(customProviders);
+          setStreamLoading(false);
+          return;
+        }
+        // No custom DB stream — fall back to hardcoded registry
         const res = await fetch(`/api/anime/hindi-stream?malId=${malId}&episode=${epNumber}`);
         const data = await res.json();
         if (data.available && data.playerUrl) {
@@ -526,7 +562,7 @@ export default function WatchPage() {
       return;
     }
 
-    // ── Normal path for all other language / title combinations ──
+    // ── Step 3: Normal path — prepend custom DB providers then default servers ──
     try {
       const res = await fetch(`/api/anime/stream?malId=${malId}&episode=${epNumber}&season=1&lang=${lang}`);
       if (!res.ok) {
@@ -534,10 +570,12 @@ export default function WatchPage() {
         throw new Error(err.error || "Failed to load stream");
       }
       const data: StreamData = await res.json();
-      setStreamData(data);
-      if (data.providers?.length > 0) {
-        setActiveProvider(data.providers[0].name);
-        startFailoverTimer(data.providers);
+      const allProviders = [...customProviders, ...(data.providers ?? [])];
+      const mergedData: StreamData = { ...data, providers: allProviders };
+      setStreamData(mergedData);
+      if (allProviders.length > 0) {
+        setActiveProvider(allProviders[0].name);
+        startFailoverTimer(allProviders);
       }
       startPlayerTimer();
       if (autoPlay) {

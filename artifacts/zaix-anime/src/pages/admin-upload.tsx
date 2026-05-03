@@ -201,7 +201,7 @@ export default function AdminUploadPage() {
       <div className="max-w-2xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center"
               style={{ background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.3)" }}>
@@ -216,6 +216,14 @@ export default function AdminUploadPage() {
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-400 transition-colors px-3 py-2 rounded-lg hover:bg-red-400/10">
             <LogOut className="w-3.5 h-3.5" /> Logout
           </button>
+        </div>
+
+        {/* Admin identity banner */}
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-6 text-xs font-semibold"
+          style={{ background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.25)", color: "#ffd700" }}>
+          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+          Authenticated as <span className="font-black">AdminZaik</span>
+          <span className="opacity-50 font-normal ml-1">— Only this account can access this page</span>
         </div>
 
         {/* Add Stream Form */}
