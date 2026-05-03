@@ -12,6 +12,7 @@ import SchedulePage from "@/pages/schedule";
 import WatchPartyPage from "@/pages/watch-party";
 import AdminPage from "@/pages/admin";
 import ProfilePage from "@/pages/profile";
+import LeaderboardPage from "@/pages/leaderboard";
 import TosPage from "@/pages/tos";
 import DmcaPage from "@/pages/dmca";
 import ContactPage from "@/pages/contact";
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/watch-party" component={WatchPartyPage} />
       <Route path="/xadmin" component={AdminPage} />
       <Route path="/profile/:username" component={ProfilePage} />
+      <Route path="/leaderboard" component={LeaderboardPage} />
       <Route path="/tos" component={TosPage} />
       <Route path="/dmca" component={DmcaPage} />
       <Route path="/contact" component={ContactPage} />

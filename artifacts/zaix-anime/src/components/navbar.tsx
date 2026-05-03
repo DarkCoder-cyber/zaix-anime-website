@@ -134,6 +134,7 @@ export function Navbar() {
     { href: "/", label: "Home" },
     { href: "/categories", label: "Categories" },
     { href: "/trending", label: "Trending" },
+    { href: "/leaderboard", label: "Leaderboard" },
     { href: "/schedule", label: "Schedule" },
     { href: "/watch-party", label: "Watch Party" },
   ];
