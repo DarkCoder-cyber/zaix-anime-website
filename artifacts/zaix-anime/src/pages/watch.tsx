@@ -4,7 +4,7 @@ import {
   Share2, Heart, MessageSquare, Star, Send, Play, Tv,
   AlertCircle, RefreshCw, Film, PictureInPicture2, WandSparkles,
   Download, Check, X, Server, ChevronDown, Layers, SkipForward,
-  AlertTriangle, Zap,
+  AlertTriangle, Zap, Keyboard, Maximize2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ReviewSection } from "@/components/review-section";
@@ -51,6 +51,10 @@ const EXTRA_SERVERS = [
 ];
 
 const FAILOVER_DELAY = 15;
+const SKIP_INTRO_START = 85;
+const SKIP_INTRO_END = 110;
+const SKIP_OUTRO_START = 1260;
+const SKIP_OUTRO_END = 1380;
 
 function DownloadModal({ anime, episode, onClose }: { anime: any; episode: number; onClose: () => void }) {
   const [quality, setQuality] = useState<"1080p" | "720p" | "480p">("1080p");
@@ -236,11 +240,17 @@ export default function WatchPage() {
   });
   const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
   const [failoverCountdown, setFailoverCountdown] = useState<number | null>(null);
+  const [playerSeconds, setPlayerSeconds] = useState(0);
+  const [showSkipIntro, setShowSkipIntro] = useState(false);
+  const [showSkipOutro, setShowSkipOutro] = useState(false);
+  const [showKeyHints, setShowKeyHints] = useState(false);
   const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const failoverTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const failoverCancelledRef = useRef(false);
   const activeProviderRef = useRef(activeProvider);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const { addRecent } = useRecentlyVisited();
 
   useEffect(() => { activeProviderRef.current = activeProvider; }, [activeProvider]);
@@ -358,6 +368,40 @@ export default function WatchPage() {
 
   useEffect(() => { return () => { clearAutoPlayTimer(); clearFailoverTimer(); }; }, [clearAutoPlayTimer, clearFailoverTimer]);
 
+  const startPlayerTimer = useCallback(() => {
+    if (playerTimerRef.current) clearInterval(playerTimerRef.current);
+    setPlayerSeconds(0);
+    setShowSkipIntro(false);
+    setShowSkipOutro(false);
+    let secs = 0;
+    playerTimerRef.current = setInterval(() => {
+      secs++;
+      setPlayerSeconds(secs);
+      setShowSkipIntro(secs >= SKIP_INTRO_START && secs <= SKIP_INTRO_END);
+      setShowSkipOutro(secs >= SKIP_OUTRO_START && secs <= SKIP_OUTRO_END);
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        const el = playerContainerRef.current;
+        if (!el) return;
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else el.requestFullscreen().catch(() => {});
+      }
+      if (e.key === "?") setShowKeyHints(v => !v);
+      if (e.key === "i" || e.key === "I") setShowSkipIntro(false);
+      if (e.key === "o" || e.key === "O") setShowSkipOutro(false);
+      if (e.key === "Escape") setShowKeyHints(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
   const fetchStream = useCallback(async (epNumber: number) => {
     setStreamLoading(true);
     setStreamError(null);
@@ -375,6 +419,7 @@ export default function WatchPage() {
         setActiveProvider(data.providers[0].name);
         startFailoverTimer(data.providers);
       }
+      startPlayerTimer();
       if (autoPlay) {
         const nextEpNumber = epNumber + 1;
         const hasNext = episodes.some(e => e.number === nextEpNumber);
@@ -385,7 +430,7 @@ export default function WatchPage() {
     } finally {
       setStreamLoading(false);
     }
-  }, [malId, autoPlay, episodes, clearAutoPlayTimer, clearFailoverTimer, startAutoPlayCountdown, startFailoverTimer]);
+  }, [malId, autoPlay, episodes, clearAutoPlayTimer, clearFailoverTimer, startAutoPlayCountdown, startFailoverTimer, startPlayerTimer]);
 
   const handleEpisodeClick = (epNumber: number) => {
     setSelectedEp(epNumber);
@@ -452,7 +497,7 @@ export default function WatchPage() {
             <div className="lg:col-span-2 flex flex-col gap-5">
 
               {/* Video Player */}
-              <div className="w-full aspect-video bg-black rounded-xl overflow-hidden relative border border-primary/20 shadow-neon" style={{ transform: "translateZ(0)" }}>
+              <div ref={playerContainerRef} className="w-full aspect-video bg-black rounded-xl overflow-hidden relative border border-primary/20 shadow-neon" style={{ transform: "translateZ(0)" }}>
                 {streamLoading && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
@@ -527,6 +572,72 @@ export default function WatchPage() {
                       <button onClick={cancelFailover} className="px-3 py-1 rounded-lg bg-secondary text-muted-foreground text-xs hover:text-white">
                         Cancel
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Skip Intro */}
+                {showSkipIntro && currentEmbedUrl && !streamLoading && (
+                  <div className="absolute bottom-16 right-4 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <button
+                      onClick={() => setShowSkipIntro(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all"
+                      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", border: "1px solid rgba(57,255,20,0.5)", color: "#39ff14", boxShadow: "0 0 20px rgba(57,255,20,0.25)" }}>
+                      <SkipForward className="w-4 h-4" /> Skip Intro
+                      <span className="text-xs opacity-60 ml-0.5 font-mono">[I]</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Skip Outro */}
+                {showSkipOutro && currentEmbedUrl && !streamLoading && (
+                  <div className="absolute bottom-16 right-4 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <button
+                      onClick={() => setShowSkipOutro(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all"
+                      style={{ background: "rgba(57,255,20,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(57,255,20,0.6)", color: "#39ff14", boxShadow: "0 0 20px rgba(57,255,20,0.3)" }}>
+                      <SkipForward className="w-4 h-4" /> Skip Outro
+                      <span className="text-xs opacity-60 ml-0.5 font-mono">[O]</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Keyboard hints toggle */}
+                {currentEmbedUrl && !streamLoading && (
+                  <button
+                    onClick={() => setShowKeyHints(v => !v)}
+                    title="Keyboard Shortcuts [?]"
+                    className="absolute top-3 right-3 z-20 p-1.5 rounded-lg transition-all opacity-40 hover:opacity-100"
+                    style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)" }}>
+                    <Keyboard className="w-3.5 h-3.5 text-white" />
+                  </button>
+                )}
+
+                {/* Keyboard hints panel */}
+                {showKeyHints && (
+                  <div className="absolute top-3 right-12 z-30 rounded-xl p-4 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-200"
+                    style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(16px)", border: "1px solid rgba(57,255,20,0.3)", boxShadow: "0 0 30px rgba(0,0,0,0.8)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Keyboard className="w-3.5 h-3.5 text-primary" /> Shortcuts
+                      </h4>
+                      <button onClick={() => setShowKeyHints(false)} className="text-muted-foreground hover:text-white transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {[
+                        { key: "F", desc: "Toggle Fullscreen" },
+                        { key: "I", desc: "Skip Intro" },
+                        { key: "O", desc: "Skip Outro" },
+                        { key: "?", desc: "Toggle Shortcuts" },
+                        { key: "Esc", desc: "Close Panels" },
+                      ].map(({ key, desc }) => (
+                        <div key={key} className="flex items-center justify-between gap-4">
+                          <kbd className="px-2 py-0.5 rounded text-[10px] font-mono font-bold text-primary border border-primary/40 bg-primary/10 shadow-neon">{key}</kbd>
+                          <span className="text-xs text-muted-foreground">{desc}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}

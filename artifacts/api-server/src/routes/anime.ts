@@ -123,6 +123,7 @@ router.get("/anime/trending", async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
+    if (err?.message?.includes("429")) { res.json({ data: [], pagination: { currentPage: 1, hasNextPage: false, total: 0 } }); return; }
     req.log.error({ err }, "Failed to fetch trending anime");
     res.status(500).json({ error: "Failed to fetch trending anime" });
   }
@@ -143,6 +144,7 @@ router.get("/anime/recent", async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
+    if (err?.message?.includes("429")) { res.json({ data: [], pagination: { currentPage: 1, hasNextPage: false, total: 0 } }); return; }
     req.log.error({ err }, "Failed to fetch recent anime");
     res.status(500).json({ error: "Failed to fetch recent anime" });
   }
@@ -187,6 +189,10 @@ router.get("/anime/search", async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
+    if (err?.message?.includes("429")) {
+      res.json({ data: [], pagination: { currentPage: 1, hasNextPage: false, total: 0 } });
+      return;
+    }
     req.log.error({ err }, "Failed to search anime");
     res.status(500).json({ error: "Failed to search anime" });
   }
@@ -376,6 +382,7 @@ router.get("/anime/schedule", async (req: Request, res: Response) => {
     }));
     res.json({ data: items, day });
   } catch (err: any) {
+    if (err?.message?.includes("429")) { res.json({ data: [], day: req.query.day || "" }); return; }
     req.log.error({ err }, "Failed to fetch schedule");
     res.status(500).json({ error: "Failed to fetch schedule" });
   }
@@ -414,6 +421,7 @@ router.get("/anime/:malId", async (req: Request, res: Response) => {
       year: a.year ?? null,
     });
   } catch (err: any) {
+    if (err?.message?.includes("429")) { res.status(429).json({ error: "Rate limited, please retry in a moment" }); return; }
     req.log.error({ err }, "Failed to fetch anime detail");
     res.status(500).json({ error: "Failed to fetch anime detail" });
   }
@@ -455,6 +463,10 @@ router.get("/anime/:malId/seasons", async (req: Request, res: Response) => {
 
     res.json({ data: seasons, total: seasons.length });
   } catch (err: any) {
+    if (err?.message?.includes("429")) {
+      res.json({ data: [], total: 0 });
+      return;
+    }
     req.log.error({ err }, "Failed to fetch seasons");
     res.status(500).json({ error: "Failed to fetch seasons" });
   }
@@ -480,6 +492,10 @@ router.get("/anime/:malId/episodes", async (req: Request, res: Response) => {
       total: data.pagination?.items?.total ?? data.data?.length ?? 0,
     });
   } catch (err: any) {
+    if (err?.message?.includes("429")) {
+      res.json({ data: [], total: 0 });
+      return;
+    }
     req.log.error({ err }, "Failed to fetch episodes");
     res.status(500).json({ error: "Failed to fetch episodes" });
   }

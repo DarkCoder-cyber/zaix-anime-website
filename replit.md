@@ -34,7 +34,7 @@ Full-screen anime/manga streaming & reading platform. Neon green & black UI.
 - **Auth**: JWT-based (stored in localStorage as `zaix_token`), bcryptjs password hashing. Admin token payload: `{ admin, username, role }`. User token payload: `{ userId }`.
 - **Pages**: Home (`/`), Watch (`/watch/:id`), Manga Detail (`/manga/:id`), In-App Reader (`/read/:mangaId/:chapterId`), Profile (`/profile/:username`), ToS (`/tos`), DMCA (`/dmca`), Contact (`/contact`)
 - **Home Tabs**: Anime | Manga | Manhwa | Donghua — each tab loads its own content
-- **Components**: Navbar, AnimeCard (with WatchlistButton), MangaCard, ChatBot, AuthModal, WatchlistButton (status dropdown: watching/completed/plan_to_watch/dropped), ReviewSection (with ReplySection)
+- **Components**: Navbar (glassmorphism on scroll), AnimeCard (with WatchlistButton), MangaCard, ChatBot, AuthModal (glassmorphism), WatchlistButton (status dropdown), ReviewSection (with ReplySection), NotificationBell (DB-backed for logged-in, localStorage fallback for guests)
 - **Watchlist**: DB-backed for logged-in users (`useWatchlist` hook), localStorage fallback for guests
 - **Continue Watching**: DB-backed watch progress for logged-in users on homepage
 - **Dynamic Recommendations**: Genre-based on homepage using `/api/recommendations`
@@ -43,17 +43,51 @@ Full-screen anime/manga streaming & reading platform. Neon green & black UI.
 - **Footer**: Professional 4-column footer with legal links
 - **SEO**: Full Open Graph + Twitter Card meta tags in `index.html`
 
+### Video Player Features (watch.tsx)
+- **Skip Intro**: Overlay button appears at 85–110s after episode loads (press I or click)
+- **Skip Outro**: Overlay button appears at 1260–1380s (press O or click)
+- **Keyboard Shortcuts**: `F` = fullscreen player container, `?` = toggle hints panel, `I` = skip intro, `O` = skip outro, `Esc` = close panels
+- **Auto-failover**: 15s timer auto-switches to next provider with toast notification
+- **Auto-play**: Optional countdown to next episode
+
+### Admin Panel (`/xadmin`)
+- **Maintenance Mode**: Toggle that shows "Coming Back Soon" to all non-admin users
+- **Analytics**: User count, review count, banned users, trending tags
+- **Global Alert**: Scrolling announcement visible site-wide
+- **Reviews**: Manage/delete any review
+- **Users**: Ban/unban by username
+- **Reports**: View, resolve, or delete moderation reports
+- **Trending**: Tag anime as Trending or Hot
+
+### Notification System
+- **DB-backed** for logged-in users (notifications table in Postgres)
+- **localStorage** fallback for guests
+- **Episode Detection**: On login, checks watchlist against last known episode counts (localStorage cache). Creates DB notification if new episodes detected.
+- **Pulsing bell badge** in navbar when unread count > 0
+- **Actions**: Mark single read, mark all read, clear all
+
+### Discord Webhook (`DISCORD_WEBHOOK_URL` env var)
+- Triggers on: new user registration, 5-star review submitted
+- Utility: `artifacts/api-server/src/utils/discord.ts`
+- Set env var `DISCORD_WEBHOOK_URL` to activate (silent no-op if not set)
+
+### UI Polish
+- **Glassmorphism**: Navbar (on scroll), auth modal, notification bell panel use `backdrop-filter: blur(24–32px) saturate(200%)`
+- **Click animations**: `button, [role="button"]` globally gets `active:scale-[0.96] transition-transform` via index.css
+- **Glass utilities**: `.glass` and `.glass-strong` CSS classes available globally
+
 ### API Server (`artifacts/api-server`)
 Express 5 REST API. All routes under `/api/`.
 - **Auth routes**: POST /api/auth/register, POST /api/auth/login, POST /api/auth/logout, GET /api/auth/me
-- **Auth**: JWT via `jsonwebtoken`, passwords hashed with `bcryptjs`. Helper: `extractUserId(req)` in `auth-helpers.ts`
-- **DB Schema**: `users`, `watchlist`, `watch_progress`, `review_replies` tables
+- **Auth**: JWT via `jsonwebtoken`, passwords hashed with `bcryptjs`. Helper: `extractUserId(req)` in `src/lib/auth-helpers.ts`
+- **DB Schema**: `users`, `watchlist`, `watch_progress`, `review_replies`, `notifications` tables
 - **Watchlist**: GET /api/watchlist, GET /api/watchlist/check, POST /api/watchlist, DELETE /api/watchlist/:id
 - **Progress**: GET /api/progress, GET /api/progress/all, POST /api/progress
 - **Recommendations**: GET /api/recommendations?genres=Action&exclude=ids&limit=12 (Jikan genre search, deduped)
 - **Profiles**: GET /api/users/:username/profile (public stats + watchlist)
 - **Replies**: GET /api/reviews/:reviewId/replies, POST /api/reviews/:reviewId/replies, DELETE /api/reviews/replies/:replyId (registered BEFORE reviewsRouter to avoid route conflict)
-- **Anime streaming**: GET /api/anime/stream?malId=&episode=&season= — resolves MAL ID → IMDB ID via ARM API, returns multiple embed provider URLs (2Embed, EmbedSu, VidSrc.xyz, SmashyStream)
+- **Notifications**: GET /api/notifications, POST /api/notifications, PATCH /api/notifications/:id/read, POST /api/notifications/read-all, DELETE /api/notifications
+- **Anime streaming**: GET /api/anime/stream?malId=&episode=&season= — resolves MAL ID → IMDB ID via ARM API, returns multiple embed provider URLs
 - **Manga routes** (MangaDex API `https://api.mangadex.org`):
   - GET /api/manga/trending?type=manga|manhwa|manhua
   - GET /api/manga/search?q=...&type=...
@@ -67,3 +101,4 @@ Express 5 REST API. All routes under `/api/`.
 - `lib/api-zod/src/index.ts` exports only from `./generated/api` (no types re-export)
 - Frontend auth-modal uses inline Zod schemas (not imported from `@workspace/api-zod`) since that lib is server-only
 - DB push command: `cd lib/db && pnpm run push-force` (not the workspace-level `pnpm run push`)
+- `DISCORD_WEBHOOK_URL` env var must be set for Discord notifications to fire

@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, reviewsTable } from "@workspace/db";
 import { eq, and, avg, desc } from "drizzle-orm";
+import { notifyFiveStarReview } from "../utils/discord";
 
 const router: IRouter = Router();
 
@@ -50,16 +51,21 @@ router.post("/reviews/:contentType/:contentId", async (req: Request, res: Respon
       return;
     }
 
+    const cleanUser = String(userName || "Anonymous").trim().slice(0, 50) || "Anonymous";
     const [inserted] = await db
       .insert(reviewsTable)
       .values({
         contentType,
         contentId,
-        userName: String(userName || "Anonymous").trim().slice(0, 50) || "Anonymous",
+        userName: cleanUser,
         rating,
         reviewText: reviewText ? String(reviewText).trim().slice(0, 2000) : null,
       })
       .returning();
+
+    if (rating === 5) {
+      notifyFiveStarReview(cleanUser, contentType, contentId, inserted.reviewText ?? null).catch(() => {});
+    }
 
     res.status(201).json(inserted);
   } catch (err: any) {

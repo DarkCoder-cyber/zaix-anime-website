@@ -12,6 +12,7 @@ import progressRouter from "./progress";
 import recommendationsRouter from "./recommendations";
 import profilesRouter from "./profiles";
 import repliesRouter from "./replies";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(watchlistRouter);
 router.use(progressRouter);
 router.use(recommendationsRouter);
 router.use(profilesRouter);
+router.use(notificationsRouter);
 
 export default router;

@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
+import { notifyNewUser } from "../utils/discord";
 
 const router: IRouter = Router();
 
@@ -42,6 +43,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     .returning();
 
   const token = signToken(user.id);
+
+  notifyNewUser(user.username, user.email).catch(() => {});
 
   res.status(201).json({
     user: {

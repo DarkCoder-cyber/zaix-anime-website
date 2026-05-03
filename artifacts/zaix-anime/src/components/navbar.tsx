@@ -153,7 +153,8 @@ export function Navbar() {
 
   return (
     <>
-      <header className={`fixed top-0 w-full z-50 transition-all duration-300 border-b ${isScrolled ? "bg-black/80 backdrop-blur-md border-primary/50 shadow-neon" : "bg-transparent border-transparent"}`}>
+      <header className={`fixed top-0 w-full z-50 transition-all duration-300 border-b ${isScrolled ? "border-primary/40 shadow-neon" : "bg-transparent border-transparent"}`}
+        style={isScrolled ? { background: "rgba(0,0,0,0.75)", backdropFilter: "blur(24px) saturate(200%)", WebkitBackdropFilter: "blur(24px) saturate(200%)", boxShadow: "0 0 30px rgba(57,255,20,0.08), inset 0 -1px 0 rgba(57,255,20,0.2)" } : undefined}>
         <div className="container mx-auto px-4 h-16 flex items-center justify-between relative">
           <div className="flex items-center gap-8">
             <Link href="/" className="text-2xl font-bold font-heading text-primary text-shadow-neon tracking-wider" data-testid="link-home-logo">ZAIX</Link>
