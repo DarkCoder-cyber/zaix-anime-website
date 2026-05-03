@@ -26,6 +26,10 @@ if (!basePath) {
   );
 }
 
+// Resolve to the single canonical copy of each shared package so that
+// workspace sub-packages (e.g. api-client-react) never load a second instance.
+const localModules = path.resolve(import.meta.dirname, "node_modules");
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -50,8 +54,25 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      // Force every import of these packages — including those coming from
+      // workspace libs — to resolve to exactly one module instance.
+      "react": path.resolve(localModules, "react"),
+      "react-dom": path.resolve(localModules, "react-dom"),
+      "@tanstack/react-query": path.resolve(localModules, "@tanstack/react-query"),
     },
-    dedupe: ["react", "react-dom"],
+    dedupe: ["react", "react-dom", "@tanstack/react-query"],
+  },
+  optimizeDeps: {
+    // Include the workspace library so Vite pre-bundles it together with the
+    // rest of the app, sharing the same React/react-query instances.
+    include: [
+      "react",
+      "react-dom",
+      "@tanstack/react-query",
+    ],
+    // Exclude workspace source packages from pre-bundling; Vite transpiles
+    // them inline using the aliases above.
+    exclude: ["@workspace/api-client-react"],
   },
   root: path.resolve(import.meta.dirname),
   build: {
@@ -72,6 +93,14 @@ export default defineConfig({
     },
     fs: {
       strict: true,
+      // Allow Vite to serve workspace library source files (e.g. api-client-react)
+      // which live outside the artifact root but are imported via node_modules symlinks.
+      allow: [
+        path.resolve(import.meta.dirname),
+        path.resolve(import.meta.dirname, "..", "..", "lib"),
+        path.resolve(import.meta.dirname, "..", "..", "node_modules"),
+        localModules,
+      ],
     },
   },
   preview: {
