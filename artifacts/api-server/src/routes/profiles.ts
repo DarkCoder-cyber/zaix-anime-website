@@ -9,7 +9,7 @@ router.get("/users/:username/profile", async (req: Request, res: Response) => {
   try {
     const { username } = req.params;
     const [user] = await db
-      .select({ id: usersTable.id, username: usersTable.username, createdAt: usersTable.createdAt })
+      .select({ id: usersTable.id, username: usersTable.username, totalXp: usersTable.totalXp, createdAt: usersTable.createdAt })
       .from(usersTable)
       .where(eq(usersTable.username, username))
       .limit(1);
@@ -27,7 +27,7 @@ router.get("/users/:username/profile", async (req: Request, res: Response) => {
     const dropped = watchlist.filter(w => w.status === "dropped");
 
     res.json({
-      user: { id: user.id, username: user.username, createdAt: user.createdAt },
+      user: { id: user.id, username: user.username, totalXp: user.totalXp ?? 0, createdAt: user.createdAt },
       stats: {
         totalWatching: currentlyWatching.length,
         totalCompleted: completed.length,

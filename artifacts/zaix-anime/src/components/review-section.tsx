@@ -5,11 +5,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAdmin, isAdminUsername } from "@/hooks/use-admin";
 import { AdminCrown } from "@/components/admin-badge";
+import { LevelBadge, computeLevel } from "@/components/level-badge";
 import { useAuth } from "@/hooks/use-auth";
+import { useXp } from "@/hooks/use-xp";
 
 interface Review {
   id: number; contentType: string; contentId: string;
   userName: string; rating: number; reviewText: string | null; createdAt: string;
+  userTotalXp?: number | null;
 }
 interface ReviewReply { id: number; reviewId: number; userName: string; replyText: string; isAdmin: boolean; createdAt: string; }
 interface ReviewsData { reviews: Review[]; averageRating: number | null; total: number; }
@@ -214,6 +217,7 @@ function ReplySection({ review, currentUser, isAdmin }: { review: Review; curren
 export function ReviewSection({ contentType, contentId, title }: { contentType: "anime" | "manga"; contentId: string; title?: string; }) {
   const { authenticated, isBanned } = useAdmin();
   const { user } = useAuth();
+  const { awardXp } = useXp(!!user);
   const [data, setData] = useState<ReviewsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -254,6 +258,7 @@ export function ReviewSection({ contentType, contentId, title }: { contentType: 
       setSubmitted(true); setRating(0); setReviewText("");
       await fetchReviews();
       setTimeout(() => setSubmitted(false), 4000);
+      if (user) { awardXp(50); }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to submit review.");
     } finally { setSubmitting(false); }
@@ -333,9 +338,12 @@ export function ReviewSection({ contentType, contentId, title }: { contentType: 
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isAdminReview ? "bg-yellow-500/20 border border-yellow-500/40" : "bg-primary/10 border border-primary/20"}`}>
                           {isAdminReview ? <AdminCrown size="xs" /> : <User className="w-3.5 h-3.5 text-primary" />}
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-sm" style={isAdminReview ? { color: "#FFD700" } : { color: "white" }}>{review.userName}</span>
                           {isAdminReview && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.4)", color: "#FFD700" }}>ADMIN</span>}
+                          {!isAdminReview && review.userTotalXp != null && computeLevel(review.userTotalXp) > 0 && (
+                            <LevelBadge level={computeLevel(review.userTotalXp)} size="xs" />
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

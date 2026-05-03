@@ -51,6 +51,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       id: user.id,
       username: user.username,
       email: user.email,
+      totalXp: user.totalXp ?? 0,
       createdAt: user.createdAt,
     },
     token,
@@ -89,6 +90,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
       id: user.id,
       username: user.username,
       email: user.email,
+      totalXp: user.totalXp ?? 0,
       createdAt: user.createdAt,
     },
     token,
@@ -154,6 +156,7 @@ router.get("/auth/me", async (req: Request, res: Response) => {
     id: user.id,
     username: user.username,
     email: user.email,
+    totalXp: user.totalXp ?? 0,
     createdAt: user.createdAt,
   });
 });

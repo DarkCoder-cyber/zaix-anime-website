@@ -82,11 +82,23 @@ Full-screen anime/manga streaming & reading platform. Neon green & black UI.
 - **Click animations**: `button, [role="button"]` globally gets `active:scale-[0.96] transition-transform` via index.css
 - **Glass utilities**: `.glass` and `.glass-strong` CSS classes available globally
 
+### XP & Leveling System
+- **DB**: `users.total_xp` integer column (default 0) — added via schema migration
+- **Formula**: `level = floor(sqrt(totalXp / 100))`. Level 1 = 100 XP, Level 2 = 400 XP, Level n = n² × 100 XP
+- **Earning XP**: 10 XP per 60 seconds watched (heartbeat on `playerSeconds % 60 === 0`); 50 XP per review submitted (authenticated only)
+- **Level Badges** (`src/components/level-badge.tsx`): Level 1–10 = 🥉 Bronze, Level 11–30 = 🥈 Silver, Level 31–60 = 💎 Platinum, Level 61+ = 🔥 Master
+- **Admin exclusivity**: Gold Crown (`AdminCrown`) shown ONLY for `zaix` username — never shows a level badge
+- **Badges shown in**: Review list (from `userTotalXp` JOIN), Live Chat (static on bots, real level for current user), Profile header
+- **Level-up toast**: `useXp` hook detects level change and shows styled neon toast via `sonner`
+- **XP Progress Bar**: Profile page shows animated fill bar with XP numbers and tier-colored gradient
+- **Hook**: `src/hooks/use-xp.ts` — `useXp(isLoggedIn)` returns `{ totalXp, level, progressPct, awardXp, refetchXp }`
+- **API**: GET /api/xp (auth), POST /api/xp/award `{ amount: 1–100 }` (auth)
+
 ### API Server (`artifacts/api-server`)
 Express 5 REST API. All routes under `/api/`.
 - **Auth routes**: POST /api/auth/register, POST /api/auth/login, POST /api/auth/logout, GET /api/auth/me
 - **Auth**: JWT via `jsonwebtoken`, passwords hashed with `bcryptjs`. Helper: `extractUserId(req)` in `src/lib/auth-helpers.ts`
-- **DB Schema**: `users`, `watchlist`, `watch_progress`, `review_replies`, `notifications` tables
+- **DB Schema**: `users` (with `total_xp`), `watchlist`, `watch_progress`, `review_replies`, `notifications` tables
 - **Watchlist**: GET /api/watchlist, GET /api/watchlist/check, POST /api/watchlist, DELETE /api/watchlist/:id
 - **Progress**: GET /api/progress, GET /api/progress/all, POST /api/progress
 - **Recommendations**: GET /api/recommendations?genres=Action&exclude=ids&limit=12 (Jikan genre search, deduped)

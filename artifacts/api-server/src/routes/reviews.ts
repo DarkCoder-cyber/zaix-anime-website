@@ -1,7 +1,19 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, reviewsTable } from "@workspace/db";
-import { eq, and, avg, desc } from "drizzle-orm";
+import { db, reviewsTable, usersTable } from "@workspace/db";
+import { eq, and, avg, desc, sql } from "drizzle-orm";
 import { notifyFiveStarReview } from "../utils/discord";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.SESSION_SECRET ?? "zaix-anime-secret-key";
+
+function getUserIdFromReq(req: Request): number | null {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) return null;
+  try {
+    const p = jwt.verify(auth.slice(7), JWT_SECRET) as { userId?: number };
+    return p.userId ?? null;
+  } catch { return null; }
+}
 
 const router: IRouter = Router();
 
@@ -10,9 +22,19 @@ router.get("/reviews/:contentType/:contentId", async (req: Request, res: Respons
   try {
     const { contentType, contentId } = req.params;
 
-    const reviews = await db
-      .select()
+    const rows = await db
+      .select({
+        id: reviewsTable.id,
+        contentType: reviewsTable.contentType,
+        contentId: reviewsTable.contentId,
+        userName: reviewsTable.userName,
+        rating: reviewsTable.rating,
+        reviewText: reviewsTable.reviewText,
+        createdAt: reviewsTable.createdAt,
+        userTotalXp: usersTable.totalXp,
+      })
       .from(reviewsTable)
+      .leftJoin(usersTable, eq(reviewsTable.userName, usersTable.username))
       .where(and(eq(reviewsTable.contentType, contentType), eq(reviewsTable.contentId, contentId)))
       .orderBy(desc(reviewsTable.createdAt));
 
@@ -24,9 +46,9 @@ router.get("/reviews/:contentType/:contentId", async (req: Request, res: Respons
     const averageRating = avgResult[0]?.avg ? parseFloat(avgResult[0].avg as string) : null;
 
     res.json({
-      reviews,
+      reviews: rows,
       averageRating: averageRating ? Math.round(averageRating * 10) / 10 : null,
-      total: reviews.length,
+      total: rows.length,
     });
   } catch (err: any) {
     req.log.error({ err }, "Failed to fetch reviews");
@@ -65,6 +87,15 @@ router.post("/reviews/:contentType/:contentId", async (req: Request, res: Respon
 
     if (rating === 5) {
       notifyFiveStarReview(cleanUser, contentType, contentId, inserted.reviewText ?? null).catch(() => {});
+    }
+
+    // Award 50 XP to authenticated users who write a review
+    const userId = getUserIdFromReq(req);
+    if (userId) {
+      db.update(usersTable)
+        .set({ totalXp: sql`${usersTable.totalXp} + 50` })
+        .where(eq(usersTable.id, userId))
+        .catch(() => {});
     }
 
     res.status(201).json(inserted);

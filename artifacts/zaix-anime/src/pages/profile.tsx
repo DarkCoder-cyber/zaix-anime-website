@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
-import { Eye, BookCheck, Clock, XCircle, Star, User, Calendar, ArrowLeft, Loader2 } from "lucide-react";
+import { Eye, BookCheck, Clock, XCircle, Star, User, Calendar, ArrowLeft, Loader2, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LevelBadge, computeLevelData, getLevelTier } from "@/components/level-badge";
+import { AdminCrown } from "@/components/admin-badge";
+import { isAdminUsername } from "@/hooks/use-admin";
 
 interface ProfileData {
-  user: { id: number; username: string; createdAt: string };
+  user: { id: number; username: string; totalXp: number; createdAt: string };
   stats: { totalWatching: number; totalCompleted: number; totalPlanToWatch: number; totalDropped: number; totalReviews: number };
   currentlyWatching: any[];
   completed: any[];
@@ -98,15 +101,57 @@ export default function ProfilePage() {
           <div className="absolute inset-0 opacity-10 pointer-events-none"
             style={{ background: "radial-gradient(ellipse at 20% 50%, rgba(57,255,20,0.4) 0%, transparent 60%)" }} />
           <div className="relative flex items-center gap-5 flex-wrap">
-            <div className="w-20 h-20 rounded-2xl bg-primary/10 border-2 border-primary/40 flex items-center justify-center shadow-neon shrink-0">
+            <div className="w-20 h-20 rounded-2xl bg-primary/10 border-2 border-primary/40 flex items-center justify-center shadow-neon shrink-0 relative">
               <span className="text-4xl">🎌</span>
+              {!isAdminUsername(user.username) && computeLevelData(user.totalXp ?? 0).level > 0 && (
+                <div className="absolute -bottom-2 -right-2">
+                  <LevelBadge level={computeLevelData(user.totalXp ?? 0).level} size="xs" />
+                </div>
+              )}
             </div>
-            <div className="flex flex-col gap-1">
-              <h1 className="text-3xl font-black font-heading text-white">{user.username}</h1>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-3xl font-black font-heading text-white">{user.username}</h1>
+                {isAdminUsername(user.username)
+                  ? <AdminCrown size="md" />
+                  : <LevelBadge level={computeLevelData(user.totalXp ?? 0).level} size="md" showLabel />
+                }
+              </div>
               <div className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>Member since {new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
               </div>
+              {!isAdminUsername(user.username) && (() => {
+                const xpData = computeLevelData(user.totalXp ?? 0);
+                const tier = getLevelTier(xpData.level);
+                return (
+                  <div className="mt-1 max-w-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-primary" />
+                        {xpData.totalXp.toLocaleString()} XP
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {xpData.nextLevelXp.toLocaleString()} XP → Lv.{xpData.level + 1}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-secondary rounded-full overflow-hidden border border-border">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${xpData.progressPct}%`,
+                          background: tier
+                            ? `linear-gradient(90deg, ${tier.color.includes("amber") ? "#b45309,#d97706" : tier.color.includes("slate") ? "#94a3b8,#cbd5e1" : tier.color.includes("cyan") ? "#06b6d4,#22d3ee" : "#fb923c,#f97316"})`
+                            : "linear-gradient(90deg, #39ff14, #00ff88)",
+                        }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {xpData.progressXp.toLocaleString()} / {xpData.rangeXp.toLocaleString()} XP to next level
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <div className="relative grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6">

@@ -15,8 +15,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { AdminCrown } from "@/components/admin-badge";
-import { useAdmin } from "@/hooks/use-admin";
+import { LevelBadge } from "@/components/level-badge";
+import { useAdmin, isAdminUsername } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
+import { useXp } from "@/hooks/use-xp";
 import { useAmbientColor } from "@/hooks/use-ambient-color";
 import {
   useGetAnimeById,
@@ -155,20 +157,20 @@ function EpisodeList({ episodes, loading, selectedEp, onSelect, maxHeight }: Epi
   );
 }
 
-interface ChatMessage { id: number; user: string; text: string; color: string; isAdmin?: boolean; }
-function LiveChat({ chatMsg, setChatMsg, isAdmin }: { chatMsg: string; setChatMsg: (v: string) => void; isAdmin: boolean }) {
+interface ChatMessage { id: number; user: string; text: string; color: string; isAdmin?: boolean; level?: number; }
+function LiveChat({ chatMsg, setChatMsg, isAdmin, userLevel }: { chatMsg: string; setChatMsg: (v: string) => void; isAdmin: boolean; userLevel: number }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 1, user: "AnimeFan99", text: "THIS ANIMATION IS INSANE 🔥", color: "text-primary" },
-    { id: 2, user: "KiraKun", text: "Best episode so far imo", color: "text-blue-400" },
-    { id: 3, user: "SakuraChan", text: "I can't wait for the next arc!!", color: "text-pink-400" },
-    { id: 4, user: "WeebMaster", text: "the OP song goes incredibly hard", color: "text-yellow-400" },
-    { id: 5, user: "NarutoBro", text: "best anime ever made no debate", color: "text-green-400" },
+    { id: 1, user: "AnimeFan99", text: "THIS ANIMATION IS INSANE 🔥", color: "text-primary", level: 8 },
+    { id: 2, user: "KiraKun", text: "Best episode so far imo", color: "text-blue-400", level: 22 },
+    { id: 3, user: "SakuraChan", text: "I can't wait for the next arc!!", color: "text-pink-400", level: 35 },
+    { id: 4, user: "WeebMaster", text: "the OP song goes incredibly hard", color: "text-yellow-400", level: 67 },
+    { id: 5, user: "NarutoBro", text: "best anime ever made no debate", color: "text-green-400", level: 14 },
   ]);
   const endRef = useRef<HTMLDivElement>(null);
 
   function send() {
     if (!chatMsg.trim()) return;
-    setMessages((m) => [...m, { id: Date.now(), user: isAdmin ? "zaix" : "You", text: chatMsg.trim(), color: isAdmin ? "text-yellow-400" : "text-primary", isAdmin }]);
+    setMessages((m) => [...m, { id: Date.now(), user: isAdmin ? "zaix" : "You", text: chatMsg.trim(), color: isAdmin ? "text-yellow-400" : "text-primary", isAdmin, level: isAdmin ? undefined : userLevel }]);
     setChatMsg("");
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   }
@@ -179,8 +181,10 @@ function LiveChat({ chatMsg, setChatMsg, isAdmin }: { chatMsg: string; setChatMs
         {messages.map((m) => (
           <div key={m.id} className="rounded-lg px-2.5 py-1.5"
             style={m.isAdmin ? { background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.35)", boxShadow: "0 0 8px rgba(255,215,0,0.12)" } : {}}>
-            <span className={`font-bold ${m.color} flex items-center gap-1.5 inline-flex`}>
-              {m.isAdmin && <AdminCrown size="xs" />}{m.user}:
+            <span className={`font-bold ${m.color} flex items-center gap-1 inline-flex flex-wrap`}>
+              {m.isAdmin && <AdminCrown size="xs" />}
+              {!m.isAdmin && m.level != null && m.level > 0 && <LevelBadge level={m.level} size="xs" />}
+              {m.user}:
             </span>{" "}
             <span className={m.isAdmin ? "font-medium text-yellow-50" : "font-normal text-white"}>{m.text}</span>
           </div>
@@ -224,6 +228,7 @@ export default function WatchPage() {
   const malId = parseInt(id || "0");
   const { authenticated: isAdmin } = useAdmin();
   const { user } = useAuth();
+  const { level: userLevel, awardXp } = useXp(!!user);
   const [selectedEp, setSelectedEp] = useState<number>(1);
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [streamLoading, setStreamLoading] = useState(false);
@@ -381,6 +386,14 @@ export default function WatchPage() {
   }, [clearAutoPlayTimer]);
 
   useEffect(() => { return () => { clearAutoPlayTimer(); clearFailoverTimer(); }; }, [clearAutoPlayTimer, clearFailoverTimer]);
+
+  // XP heartbeat: award 10 XP every 60 seconds of active watching
+  useEffect(() => {
+    if (!user || playerSeconds === 0) return;
+    if (playerSeconds % 60 === 0) {
+      awardXp(10);
+    }
+  }, [playerSeconds, user, awardXp]);
 
   const startPlayerTimer = useCallback(() => {
     if (playerTimerRef.current) clearInterval(playerTimerRef.current);
@@ -901,7 +914,7 @@ export default function WatchPage() {
                 <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" /> Live Chat
                 </h3>
-                <LiveChat chatMsg={chatMsg} setChatMsg={setChatMsg} isAdmin={isAdmin} />
+                <LiveChat chatMsg={chatMsg} setChatMsg={setChatMsg} isAdmin={isAdmin} userLevel={userLevel} />
               </div>
             </div>
           </div>
