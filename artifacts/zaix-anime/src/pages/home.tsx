@@ -244,6 +244,35 @@ export default function Home() {
               )}
             </div>
 
+            {/* Genre quick-filter pills */}
+            {!heroFocused && !heroQuery && (
+              <div className="flex flex-wrap justify-center gap-2 mt-3">
+                {[
+                  { label: "Action", emoji: "⚔️" },
+                  { label: "Romance", emoji: "💗" },
+                  { label: "Isekai", emoji: "🌀" },
+                  { label: "Sci-Fi", emoji: "🚀" },
+                  { label: "Fantasy", emoji: "🧙" },
+                  { label: "Horror", emoji: "👻" },
+                  { label: "Comedy", emoji: "😂" },
+                  { label: "Thriller", emoji: "🔥" },
+                ].map(({ label, emoji }) => (
+                  <button
+                    key={label}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setHeroQuery(label);
+                      setHeroFocused(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-white/10 bg-black/40 backdrop-blur-md text-white/60 hover:text-white hover:border-primary/50 hover:bg-primary/10 hover:shadow-neon transition-all duration-150"
+                  >
+                    <span>{emoji}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Autocomplete dropdown */}
             {heroFocused && heroResults.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 backdrop-blur-xl border border-primary/20 rounded-2xl overflow-hidden shadow-neon-intense z-50 animate-in fade-in slide-in-from-top-2 duration-150">
