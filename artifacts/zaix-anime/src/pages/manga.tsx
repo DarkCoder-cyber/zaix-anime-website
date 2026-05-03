@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { ArrowLeft, BookOpen, Star, ChevronRight, AlertCircle, ExternalLink } from "lucide-react";
 import { ReviewSection } from "@/components/review-section";
+import { useRecentlyVisited } from "@/hooks/use-local-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +35,7 @@ interface Chapter {
 export default function MangaPage() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
+  const { addRecent } = useRecentlyVisited();
 
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [mangaLoading, setMangaLoading] = useState(true);
@@ -53,9 +55,13 @@ export default function MangaPage() {
         if (!r.ok) return r.json().then((e) => Promise.reject(e.error || "Not found"));
         return r.json();
       })
-      .then((data) => { setManga(data); setMangaLoading(false); })
+      .then((data) => {
+        setManga(data);
+        setMangaLoading(false);
+        addRecent({ id: id!, type: "manga", title: data.title, image: data.image ?? null });
+      })
       .catch((e) => { setMangaError(String(e)); setMangaLoading(false); });
-  }, [id]);
+  }, [id, addRecent]);
 
   useEffect(() => {
     if (!id) return;

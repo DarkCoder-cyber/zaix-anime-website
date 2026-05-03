@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
 import { Share2, Heart, MessageSquare, Star, Send, Play, Tv, AlertCircle, RefreshCw } from "lucide-react";
 import { ReviewSection } from "@/components/review-section";
+import { useRecentlyVisited } from "@/hooks/use-local-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +33,7 @@ export default function WatchPage() {
   const [activeProvider, setActiveProvider] = useState<string>("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [chatMsg, setChatMsg] = useState("");
+  const { addRecent } = useRecentlyVisited();
 
   const { data: anime, isLoading: animeLoading } = useGetAnimeById(malId, {
     query: { enabled: malId > 0, queryKey: getGetAnimeByIdQueryKey(malId) },
@@ -41,6 +43,18 @@ export default function WatchPage() {
   });
 
   const episodes = episodesData?.data ?? [];
+
+  // Track recently visited
+  useEffect(() => {
+    if (anime && malId > 0) {
+      addRecent({
+        id: String(malId),
+        type: "anime",
+        title: anime.title,
+        image: anime.image ?? null,
+      });
+    }
+  }, [anime, malId, addRecent]);
 
   const fetchStream = async (epNumber: number) => {
     setStreamLoading(true);

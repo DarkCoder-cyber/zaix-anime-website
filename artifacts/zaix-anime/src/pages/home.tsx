@@ -188,7 +188,7 @@ export default function Home() {
                 ? Array.from({ length: 16 }).map((_, i) => (
                     <Skeleton key={i} className="w-full aspect-[3/4] rounded-xl" />
                   ))
-                : mangaList.map((m: any) => <MangaCard key={m.id} manga={m} />)}
+                : mangaList.map((m: any, i: number) => <MangaCard key={m.id} manga={m} isHot={i < 3} isNew={i >= 3 && i < 6} />)}
             </div>
           )}
         </section>
@@ -206,7 +206,7 @@ export default function Home() {
                 ? Array.from({ length: 16 }).map((_, i) => (
                     <Skeleton key={i} className="w-full aspect-[3/4] rounded-xl" />
                   ))
-                : manhwaList.map((m: any) => <MangaCard key={m.id} manga={m} />)}
+                : manhwaList.map((m: any, i: number) => <MangaCard key={m.id} manga={m} isHot={i < 3} isNew={i >= 3 && i < 6} />)}
             </div>
           )}
         </section>
