@@ -90,12 +90,39 @@ export default function Home() {
   const liveUsers = useLiveUsers();
   const [heroScroll, setHeroScroll] = useState(0);
   const heroBgRef = useRef<HTMLImageElement>(null);
+  const [heroQuery, setHeroQuery] = useState("");
+  const [heroResults, setHeroResults] = useState<any[]>([]);
+  const [heroSearching, setHeroSearching] = useState(false);
+  const [heroFocused, setHeroFocused] = useState(false);
+  const heroSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setHeroScroll(window.scrollY);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (heroSearchRef.current && !heroSearchRef.current.contains(e.target as Node)) {
+        setHeroFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!heroQuery.trim() || heroQuery.length < 2) { setHeroResults([]); return; }
+    const t = setTimeout(async () => {
+      setHeroSearching(true);
+      try {
+        const res = await fetch(`/api/anime/search?q=${encodeURIComponent(heroQuery.trim())}&limit=6`);
+        if (res.ok) { const d = await res.json(); setHeroResults(d.data ?? []); }
+      } catch {} finally { setHeroSearching(false); }
+    }, 280);
+    return () => clearTimeout(t);
+  }, [heroQuery]);
 
   const recGenre = useMemo(() => {
     const genres = ["Action", "Fantasy", "Romance", "Sci-Fi", "Mystery", "Supernatural", "Comedy", "Thriller", "Isekai"];
@@ -182,9 +209,83 @@ export default function Home() {
           <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black font-heading text-white tracking-tight mb-4 text-shadow-neon leading-none">
             ZAIX <span className="text-primary">ANIME</span>
           </h1>
-          <p className="text-lg sm:text-xl md:text-2xl text-foreground/85 font-medium mb-8 max-w-xl text-shadow-neon">
+          <p className="text-lg sm:text-xl md:text-2xl text-foreground/85 font-medium mb-6 max-w-xl text-shadow-neon">
             Stream Anime. Read Manga. Discover Manhwa.
           </p>
+
+          {/* Hero Search */}
+          <div ref={heroSearchRef} className="relative w-full max-w-lg mb-6">
+            <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border bg-black/60 backdrop-blur-xl transition-all duration-200 ${heroFocused ? "border-primary/70 shadow-neon" : "border-white/15 hover:border-white/30"}`}>
+              {heroSearching
+                ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                : <Search className="w-4 h-4 text-primary/70 shrink-0" />
+              }
+              <input
+                type="text"
+                value={heroQuery}
+                onChange={(e) => setHeroQuery(e.target.value)}
+                onFocus={() => setHeroFocused(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && heroResults.length > 0) {
+                    setLocation(`/watch/${heroResults[0].malId}`);
+                    setHeroQuery(""); setHeroResults([]); setHeroFocused(false);
+                  }
+                  if (e.key === "Escape") { setHeroFocused(false); setHeroQuery(""); setHeroResults([]); }
+                }}
+                placeholder="Search any anime... Naruto, One Piece, AOT"
+                className="flex-1 bg-transparent text-white text-sm placeholder:text-white/35 focus:outline-none"
+                autoComplete="off"
+              />
+              {heroQuery && (
+                <button onClick={() => { setHeroQuery(""); setHeroResults([]); }}
+                  className="shrink-0 text-white/30 hover:text-white/70 transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Autocomplete dropdown */}
+            {heroFocused && heroResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 backdrop-blur-xl border border-primary/20 rounded-2xl overflow-hidden shadow-neon-intense z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                {heroResults.map((anime, i) => (
+                  <button
+                    key={anime.malId}
+                    onMouseDown={() => {
+                      setLocation(`/watch/${anime.malId}`);
+                      setHeroQuery(""); setHeroResults([]); setHeroFocused(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-primary/10 transition-colors ${i !== heroResults.length - 1 ? "border-b border-white/5" : ""}`}
+                  >
+                    {anime.image
+                      ? <img src={anime.image} alt={anime.title} className="w-9 h-12 object-cover rounded-lg shrink-0" />
+                      : <div className="w-9 h-12 rounded-lg bg-secondary shrink-0" />
+                    }
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{anime.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {anime.type && <span className="text-[10px] text-primary/70 font-medium">{anime.type}</span>}
+                        {anime.score && <span className="text-[10px] text-yellow-400/70">★ {anime.score}</span>}
+                        {anime.episodes && <span className="text-[10px] text-white/30">{anime.episodes} eps</span>}
+                      </div>
+                    </div>
+                    <Play className="w-3.5 h-3.5 text-primary/40 shrink-0" />
+                  </button>
+                ))}
+                <div className="px-4 py-2 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] text-white/25">Press Enter to open first result</span>
+                  <span className="text-[10px] text-primary/40">{heroResults.length} results</span>
+                </div>
+              </div>
+            )}
+
+            {/* No results state */}
+            {heroFocused && heroQuery.length >= 2 && !heroSearching && heroResults.length === 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 text-center z-50">
+                <p className="text-sm text-white/40">No results for <span className="text-white/60">"{heroQuery}"</span></p>
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-center w-full max-w-sm sm:max-w-md">
             <Button
               size="lg"
