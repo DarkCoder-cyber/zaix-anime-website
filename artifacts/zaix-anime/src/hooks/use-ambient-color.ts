@@ -1,17 +1,13 @@
 import { useState, useEffect } from "react";
 
-export interface AmbientColor {
-  r: number;
-  g: number;
-  b: number;
-}
-
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  s /= 100; l /= 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+export interface AmbientColor { r: number; g: number; b: number; }
+export interface AmbientPalette {
+  topLeft: AmbientColor;
+  topRight: AmbientColor;
+  bottomLeft: AmbientColor;
+  bottomRight: AmbientColor;
+  center: AmbientColor;
+  dominant: AmbientColor;
 }
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
@@ -31,75 +27,99 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [h * 360, s * 100, l * 100];
 }
 
-function extractColorFromImage(img: HTMLImageElement): AmbientColor | null {
-  try {
-    const SIZE = 32;
-    const canvas = document.createElement("canvas");
-    canvas.width = SIZE;
-    canvas.height = SIZE;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(img, 0, 0, SIZE, SIZE);
-    const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  s /= 100; l /= 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
 
-    let bestSat = -1;
-    let bestR = 0, bestG = 0, bestB = 0;
-
-    let wR = 0, wG = 0, wB = 0, wTotal = 0;
-
-    for (let i = 0; i < data.length; i += 4) {
+function sampleRegion(
+  data: Uint8ClampedArray,
+  w: number,
+  x1: number, y1: number,
+  x2: number, y2: number,
+): AmbientColor | null {
+  let wR = 0, wG = 0, wB = 0, wTotal = 0;
+  for (let y = y1; y < y2; y++) {
+    for (let x = x1; x < x2; x++) {
+      const i = (y * w + x) * 4;
       const pr = data[i], pg = data[i + 1], pb = data[i + 2];
       const brightness = 0.299 * pr + 0.587 * pg + 0.114 * pb;
-      if (brightness < 20 || brightness > 235) continue;
-
+      if (brightness < 12 || brightness > 242) continue;
       const [, sat, lig] = rgbToHsl(pr, pg, pb);
-      if (sat < 8) continue;
-
-      const weight = sat * (1 - Math.abs(lig / 100 - 0.5) * 1.2);
-      wR += pr * weight;
-      wG += pg * weight;
-      wB += pb * weight;
-      wTotal += weight;
-
-      if (sat > bestSat) { bestSat = sat; bestR = pr; bestG = pg; bestB = pb; }
+      if (sat < 4) continue;
+      const w_ = sat * (1 - Math.abs(lig / 100 - 0.5) * 1.3) + 0.5;
+      wR += pr * w_; wG += pg * w_; wB += pb * w_; wTotal += w_;
     }
+  }
+  if (wTotal === 0) return null;
+  const [h, , l] = rgbToHsl(
+    Math.round(wR / wTotal),
+    Math.round(wG / wTotal),
+    Math.round(wB / wTotal),
+  );
+  const [r, g, b] = hslToRgb(h, 72, Math.max(l, 44));
+  return { r, g, b };
+}
 
-    if (wTotal === 0) return null;
+function extractPalette(img: HTMLImageElement): AmbientPalette | null {
+  try {
+    const S = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, S, S);
+    const { data } = ctx.getImageData(0, 0, S, S);
+    const H = S, m = S >> 1, q = S >> 2;
 
-    const avgR = Math.round(wR / wTotal);
-    const avgG = Math.round(wG / wTotal);
-    const avgB = Math.round(wB / wTotal);
+    const topLeft     = sampleRegion(data, S,  0,  0,  m,  m);
+    const topRight    = sampleRegion(data, S,  m,  0,  S,  m);
+    const bottomLeft  = sampleRegion(data, S,  0,  m,  m,  H);
+    const bottomRight = sampleRegion(data, S,  m,  m,  S,  H);
+    const center      = sampleRegion(data, S,  q,  q,  S-q, H-q);
+    const dominant    = sampleRegion(data, S,  0,  0,  S,  H);
 
-    const [h, , l] = rgbToHsl(avgR, avgG, avgB);
-    const [r, g, b] = hslToRgb(h, 75, Math.max(l, 45));
-    return { r, g, b };
+    const fb = dominant ?? { r: 90, g: 110, b: 220 };
+    return {
+      topLeft:     topLeft     ?? fb,
+      topRight:    topRight    ?? fb,
+      bottomLeft:  bottomLeft  ?? fb,
+      bottomRight: bottomRight ?? fb,
+      center:      center      ?? fb,
+      dominant:    fb,
+    };
   } catch {
     return null;
   }
 }
 
-export function useAmbientColor(imageUrl: string | null | undefined): AmbientColor | null {
-  const [color, setColor] = useState<AmbientColor | null>(null);
+export function useAmbientPalette(imageUrl: string | null | undefined): AmbientPalette | null {
+  const [palette, setPalette] = useState<AmbientPalette | null>(null);
 
   useEffect(() => {
-    if (!imageUrl) { setColor(null); return; }
-
+    if (!imageUrl) { setPalette(null); return; }
     let cancelled = false;
-    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
     const img = new Image();
     img.crossOrigin = "anonymous";
-
     img.onload = () => {
       if (cancelled) return;
-      const extracted = extractColorFromImage(img);
-      if (extracted) setColor(extracted);
+      const p = extractPalette(img);
+      if (p) setPalette(p);
     };
-
-    img.onerror = () => { if (!cancelled) setColor(null); };
-
-    img.src = proxyUrl;
+    img.onerror = () => { if (!cancelled) setPalette(null); };
+    img.src = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
     return () => { cancelled = true; };
   }, [imageUrl]);
 
-  return color;
+  return palette;
+}
+
+// Backwards-compatible single-color export
+export type { AmbientPalette as AmbientColor_ };
+export function useAmbientColor(imageUrl: string | null | undefined): AmbientColor | null {
+  const p = useAmbientPalette(imageUrl);
+  return p?.dominant ?? null;
 }

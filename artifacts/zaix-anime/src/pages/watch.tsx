@@ -19,7 +19,8 @@ import { LevelBadge } from "@/components/level-badge";
 import { useAdmin, isAdminUsername } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
 import { useXp } from "@/hooks/use-xp";
-import { useAmbientColor } from "@/hooks/use-ambient-color";
+import { useAmbientPalette } from "@/hooks/use-ambient-color";
+import { AmbientGlow } from "@/components/ambient-glow";
 import {
   useGetAnimeById,
   useGetAnimeEpisodes,
@@ -247,6 +248,7 @@ export default function WatchPage() {
   const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
   const [failoverCountdown, setFailoverCountdown] = useState<number | null>(null);
   const [playerSeconds, setPlayerSeconds] = useState(0);
+  const [ambientEnabled, setAmbientEnabled] = useState(true);
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showSkipOutro, setShowSkipOutro] = useState(false);
   const [showKeyHints, setShowKeyHints] = useState(false);
@@ -264,18 +266,19 @@ export default function WatchPage() {
   const { data: anime, isLoading: animeLoading } = useGetAnimeById(malId, {
     query: { enabled: malId > 0, queryKey: getGetAnimeByIdQueryKey(malId) },
   });
-  const ambientColor = useAmbientColor((anime as any)?.image ?? null);
+  const ambientPalette = useAmbientPalette((anime as any)?.image ?? null);
   const ambientStyle = useMemo(() => {
-    if (!ambientColor) return {};
-    const { r, g, b } = ambientColor;
+    if (!ambientPalette || !ambientEnabled) return {};
+    const { topLeft: tl, topRight: tr, bottomLeft: bl, bottomRight: br } = ambientPalette;
     return {
       background: `
-        radial-gradient(ellipse 90% 55% at 15% 15%, rgba(${r},${g},${b},0.22) 0%, transparent 65%),
-        radial-gradient(ellipse 75% 65% at 85% 85%, rgba(${r},${g},${b},0.16) 0%, transparent 60%),
-        radial-gradient(ellipse 55% 45% at 50% 5%,  rgba(${r},${g},${b},0.12) 0%, transparent 55%)
+        radial-gradient(ellipse 80% 65% at 0%   0%,   rgba(${tl.r},${tl.g},${tl.b},0.22) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 65% at 100% 0%,   rgba(${tr.r},${tr.g},${tr.b},0.22) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 65% at 0%   100%, rgba(${bl.r},${bl.g},${bl.b},0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 65% at 100% 100%, rgba(${br.r},${br.g},${br.b},0.15) 0%, transparent 60%)
       `,
     };
-  }, [ambientColor]);
+  }, [ambientPalette, ambientEnabled]);
 
   const { data: episodesData, isLoading: epsLoading } = useGetAnimeEpisodes(malId, {}, {
     query: { enabled: malId > 0, queryKey: getGetAnimeEpisodesQueryKey(malId, {}) },
@@ -564,7 +567,9 @@ export default function WatchPage() {
               )}
 
               {/* Video Player */}
-              <div ref={playerContainerRef} className="w-full aspect-video bg-black rounded-xl overflow-hidden relative border border-primary/20 shadow-neon" style={{ transform: "translateZ(0)" }}>
+              <div className="relative" style={{ isolation: "isolate" }}>
+                <AmbientGlow palette={ambientPalette} enabled={ambientEnabled} />
+                <div ref={playerContainerRef} className="w-full aspect-video bg-black rounded-xl overflow-hidden relative border border-primary/20 shadow-neon" style={{ transform: "translateZ(0)", zIndex: 1, position: "relative" }}>
                 {streamLoading && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
@@ -677,6 +682,22 @@ export default function WatchPage() {
                 )}
 
                 {/* Keyboard hints toggle */}
+                {/* Ambient Mode toggle */}
+                {!!ambientPalette && (
+                  <button
+                    onClick={() => setAmbientEnabled(v => !v)}
+                    title={ambientEnabled ? "Disable Ambient Mode" : "Enable Ambient Mode"}
+                    className="absolute top-3 right-12 z-20 p-1.5 rounded-lg transition-all"
+                    style={{
+                      background: ambientEnabled ? "rgba(57,255,20,0.15)" : "rgba(0,0,0,0.6)",
+                      backdropFilter: "blur(8px)",
+                      border: ambientEnabled ? "1px solid rgba(57,255,20,0.45)" : "1px solid rgba(255,255,255,0.12)",
+                      opacity: ambientEnabled ? 1 : 0.45,
+                    }}>
+                    <WandSparkles className="w-3.5 h-3.5" style={{ color: ambientEnabled ? "#39ff14" : "white" }} />
+                  </button>
+                )}
+
                 {currentEmbedUrl && !streamLoading && (
                   <button
                     onClick={() => setShowKeyHints(v => !v)}
@@ -689,7 +710,7 @@ export default function WatchPage() {
 
                 {/* Keyboard hints panel */}
                 {showKeyHints && (
-                  <div className="absolute top-3 right-12 z-30 rounded-xl p-4 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-200"
+                  <div className="absolute top-3 right-[88px] z-30 rounded-xl p-4 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-200"
                     style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(16px)", border: "1px solid rgba(57,255,20,0.3)", boxShadow: "0 0 30px rgba(0,0,0,0.8)" }}>
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
@@ -715,6 +736,7 @@ export default function WatchPage() {
                     </div>
                   </div>
                 )}
+                </div>
               </div>
 
               {/* Server Switcher */}
