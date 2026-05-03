@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 
 const ADMIN_PASSWORD = "darkdevil_300";
 const ADMIN_USERNAME = "zaix";
+const ADMIN_USERNAME_ALT = "adminzaik";
 const ADMIN_TOKEN_KEY = "zaix_admin_token";
 const ADMIN_AUTH_KEY = "zaix_admin_auth";
 const MAINTENANCE_KEY = "zaix_maintenance_mode";
@@ -31,7 +32,8 @@ function useLocalStorage<T>(key: string, initial: T) {
 }
 
 export function isAdminUsername(username: string) {
-  return username.trim().toLowerCase() === ADMIN_USERNAME;
+  const lower = username.trim().toLowerCase();
+  return lower === ADMIN_USERNAME || lower === ADMIN_USERNAME_ALT;
 }
 
 export function isMaintenanceActive(): boolean {
