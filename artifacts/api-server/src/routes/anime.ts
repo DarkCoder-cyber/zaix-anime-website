@@ -298,6 +298,52 @@ router.get("/anime/:malId", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/anime/:malId/seasons — returns related seasons/sequels from Jikan relations
+router.get("/anime/:malId/seasons", async (req: Request, res: Response) => {
+  try {
+    const malId = parseInt(req.params.malId);
+    if (isNaN(malId)) { res.status(400).json({ error: "Invalid malId" }); return; }
+
+    const [animeData, relationsData] = await Promise.all([
+      jikanFetch(`/anime/${malId}`),
+      jikanFetch(`/anime/${malId}/relations`),
+    ]);
+
+    const currentTitle: string = animeData.data?.title_english || animeData.data?.title || "";
+    const currentImage = animeData.data?.images?.jpg?.large_image_url || animeData.data?.images?.jpg?.image_url;
+
+    // Collect season entries: Sequel, Prequel, Alternative version, Full story
+    const SEASON_RELATIONS = ["Sequel", "Prequel", "Alternative version", "Parent story", "Full story"];
+    const relatedEntries: any[] = [];
+    for (const rel of (relationsData.data ?? [])) {
+      if (SEASON_RELATIONS.includes(rel.relation)) {
+        for (const entry of (rel.entry ?? [])) {
+          if (entry.type === "anime") {
+            relatedEntries.push({ relation: rel.relation, malId: entry.mal_id, title: entry.name });
+          }
+        }
+      }
+    }
+
+    // Build season list: current season + related
+    const seasons = [
+      { malId, title: currentTitle, image: currentImage, relation: "Current", isCurrent: true },
+      ...relatedEntries.map((e) => ({
+        malId: e.malId,
+        title: e.title,
+        image: null as string | null,
+        relation: e.relation,
+        isCurrent: false,
+      })),
+    ];
+
+    res.json({ data: seasons, total: seasons.length });
+  } catch (err: any) {
+    req.log.error({ err }, "Failed to fetch seasons");
+    res.status(500).json({ error: "Failed to fetch seasons" });
+  }
+});
+
 // GET /api/anime/:malId/episodes
 router.get("/anime/:malId/episodes", async (req: Request, res: Response) => {
   try {

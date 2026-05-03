@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Star, Send, User, MessageSquare } from "lucide-react";
+import { Star, Send, User, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { useAdmin, isAdminUsername } from "@/hooks/use-admin";
+import { AdminCrown } from "@/components/admin-badge";
 
 interface Review {
   id: number;
@@ -46,9 +49,7 @@ function StarRating({
         <Star
           key={star}
           className={`${sizeClass} transition-colors ${
-            star <= active
-              ? "fill-primary text-primary"
-              : "fill-none text-muted-foreground"
+            star <= active ? "fill-primary text-primary" : "fill-none text-muted-foreground"
           }`}
           onMouseEnter={() => !readonly && setHovered(star)}
           onMouseLeave={() => !readonly && setHovered(0)}
@@ -72,11 +73,13 @@ function timeAgo(dateStr: string) {
 }
 
 export function ReviewSection({ contentType, contentId, title }: ReviewSectionProps) {
+  const { authenticated, isBanned } = useAdmin();
   const [data, setData] = useState<ReviewsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [userName, setUserName] = useState("");
   const [rating, setRating] = useState(0);
@@ -96,16 +99,11 @@ export function ReviewSection({ contentType, contentId, title }: ReviewSectionPr
     }
   }, [contentType, contentId]);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [fetchReviews]);
+  useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (rating === 0) {
-      setError("Please select a star rating.");
-      return;
-    }
+    if (rating === 0) { setError("Please select a star rating."); return; }
     setSubmitting(true);
     setError(null);
     try {
@@ -135,19 +133,35 @@ export function ReviewSection({ contentType, contentId, title }: ReviewSectionPr
     }
   };
 
+  const handleDelete = async (review: Review) => {
+    setDeletingId(review.id);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setData(prev => prev ? {
+        ...prev,
+        reviews: prev.reviews.filter(r => r.id !== review.id),
+        total: prev.total - 1,
+      } : null);
+      toast.success("Review deleted");
+    } catch {
+      toast.error("Could not delete review");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const visibleReviews = (data?.reviews ?? []).filter(r => !isBanned(r.userName));
+
   return (
     <section className="bg-card border border-border rounded-xl overflow-hidden">
       {/* Header */}
       <div className="p-5 border-b border-border flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-primary shrink-0" />
-          <h3 className="font-bold font-heading text-white">
-            Community Reviews
-          </h3>
+          <h3 className="font-bold font-heading text-white">Community Reviews</h3>
           {!loading && data && data.total > 0 && (
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-              {data.total}
-            </span>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{data.total}</span>
           )}
         </div>
         {!loading && data?.averageRating != null && (
@@ -162,9 +176,7 @@ export function ReviewSection({ contentType, contentId, title }: ReviewSectionPr
       <div className="p-5 flex flex-col gap-6">
         {/* Write a Review */}
         <form onSubmit={handleSubmit} className="bg-background/50 border border-primary/20 rounded-xl p-4 flex flex-col gap-4">
-          <h4 className="font-semibold text-white text-sm">
-            Rate{title ? ` "${title}"` : " this"}
-          </h4>
+          <h4 className="font-semibold text-white text-sm">Rate{title ? ` "${title}"` : " this"}</h4>
 
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-muted-foreground">Your rating *</span>
@@ -197,15 +209,8 @@ export function ReviewSection({ contentType, contentId, title }: ReviewSectionPr
             />
           </div>
 
-          {error && (
-            <p className="text-red-400 text-xs">{error}</p>
-          )}
-
-          {submitted && (
-            <p className="text-primary text-xs font-medium">
-              ✓ Review submitted! Thank you.
-            </p>
-          )}
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {submitted && <p className="text-primary text-xs font-medium">✓ Review submitted! Thank you.</p>}
 
           <Button
             type="submit"
@@ -227,37 +232,70 @@ export function ReviewSection({ contentType, contentId, title }: ReviewSectionPr
               </div>
             ))}
           </div>
-        ) : !data || data.reviews.length === 0 ? (
+        ) : visibleReviews.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Star className="w-8 h-8 mx-auto mb-3 text-primary/20" />
             <p className="text-sm">No reviews yet. Be the first!</p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {data.reviews.map((review) => (
-              <div
-                key={review.id}
-                className="border border-border rounded-xl p-4 flex flex-col gap-2 hover:border-primary/30 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                      <User className="w-3.5 h-3.5 text-primary" />
+            {visibleReviews.map((review) => {
+              const isAdmin = isAdminUsername(review.userName);
+              return (
+                <div
+                  key={review.id}
+                  className={`border rounded-xl p-4 flex flex-col gap-2 hover:border-primary/30 transition-colors ${
+                    isAdmin ? "border-yellow-500/30 bg-yellow-500/5" : "border-border"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isAdmin ? "bg-yellow-500/20 border border-yellow-500/40" : "bg-primary/10 border border-primary/20"}`}>
+                        {isAdmin ? (
+                          <AdminCrown size="xs" />
+                        ) : (
+                          <User className="w-3.5 h-3.5 text-primary" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-sm" style={isAdmin ? { color: "#FFD700" } : { color: "white" }}>
+                          {review.userName}
+                        </span>
+                        {isAdmin && (
+                          <span
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.4)", color: "#FFD700" }}
+                          >
+                            ADMIN
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="font-semibold text-sm text-white">{review.userName}</span>
+                    <div className="flex items-center gap-3">
+                      <StarRating value={review.rating} readonly size="sm" />
+                      <span className="text-xs text-muted-foreground">{timeAgo(review.createdAt)}</span>
+                      {authenticated && (
+                        <button
+                          onClick={() => handleDelete(review)}
+                          disabled={deletingId === review.id}
+                          className="text-red-400/60 hover:text-red-400 transition-colors disabled:opacity-40"
+                          title="Delete review (Admin)"
+                        >
+                          {deletingId === review.id ? (
+                            <div className="w-3.5 h-3.5 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <StarRating value={review.rating} readonly size="sm" />
-                    <span className="text-xs text-muted-foreground">{timeAgo(review.createdAt)}</span>
-                  </div>
+                  {review.reviewText && (
+                    <p className="text-sm text-muted-foreground leading-relaxed pl-9">{review.reviewText}</p>
+                  )}
                 </div>
-                {review.reviewText && (
-                  <p className="text-sm text-muted-foreground leading-relaxed pl-9">
-                    {review.reviewText}
-                  </p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

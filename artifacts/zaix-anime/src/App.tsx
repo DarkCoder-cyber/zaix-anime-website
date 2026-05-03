@@ -10,6 +10,7 @@ import MangaPage from "@/pages/manga";
 import ReadPage from "@/pages/read";
 import SchedulePage from "@/pages/schedule";
 import WatchPartyPage from "@/pages/watch-party";
+import AdminPage from "@/pages/admin";
 import { Navbar } from "@/components/navbar";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/read/:mangaId/:chapterId" component={ReadPage} />
       <Route path="/schedule" component={SchedulePage} />
       <Route path="/watch-party" component={WatchPartyPage} />
+      <Route path="/xadmin" component={AdminPage} />
       <Route path="/categories" component={Home} />
       <Route path="/trending" component={Home} />
       <Route component={NotFound} />

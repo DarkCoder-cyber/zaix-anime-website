@@ -3,8 +3,9 @@ import { useParams, useLocation } from "wouter";
 import {
   Share2, Heart, MessageSquare, Star, Send, Play, Tv,
   AlertCircle, RefreshCw, Film, PictureInPicture2, WandSparkles,
-  Download, Check, X, Server,
+  Download, Check, X, Server, ChevronDown, Layers,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { ReviewSection } from "@/components/review-section";
 import { useRecentlyVisited } from "@/hooks/use-local-store";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,14 @@ interface StreamProvider { name: string; label: string; url: string; }
 interface StreamData {
   malId: number; episode: number; season: number;
   imdbId: string | null; embedUrl: string; providers: StreamProvider[];
+}
+
+interface SeasonEntry {
+  malId: number;
+  title: string;
+  image: string | null;
+  relation: string;
+  isCurrent: boolean;
 }
 
 type LangFilter = "sub" | "dub" | "hindi" | "raw";
@@ -58,58 +67,78 @@ function DownloadModal({ anime, episode, onClose }: { anime: any; episode: numbe
           <h2 className="font-bold font-heading text-white flex items-center gap-2"><Download className="w-4 h-4 text-primary" /> Download Episode</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors"><X className="w-4 h-4" /></button>
         </div>
-
         <div className="bg-secondary/50 rounded-lg px-3 py-2">
           <p className="text-xs text-muted-foreground">Anime</p>
           <p className="text-sm font-bold text-white line-clamp-1">{anime?.title || "Unknown"}</p>
           <p className="text-xs text-primary mt-0.5">Episode {episode}</p>
         </div>
-
         <div>
           <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-semibold">Quality</p>
           <div className="flex gap-2">
             {(["1080p", "720p", "480p"] as const).map((q) => (
-              <button
-                key={q}
-                onClick={() => setQuality(q)}
-                className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-all ${quality === q ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary border-border text-muted-foreground hover:border-primary/50 hover:text-primary"}`}
-              >{q}</button>
+              <button key={q} onClick={() => setQuality(q)} className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-all ${quality === q ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary border-border text-muted-foreground hover:border-primary/50 hover:text-primary"}`}>{q}</button>
             ))}
           </div>
         </div>
-
         <div>
           <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-semibold">Format</p>
           <div className="flex gap-2">
             {(["mp4", "mkv"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFormat(f)}
-                className={`flex-1 py-2 rounded-lg text-sm font-bold border uppercase transition-all ${format === f ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary border-border text-muted-foreground hover:border-primary/50 hover:text-primary"}`}
-              >{f}</button>
+              <button key={f} onClick={() => setFormat(f)} className={`flex-1 py-2 rounded-lg text-sm font-bold border uppercase transition-all ${format === f ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary border-border text-muted-foreground hover:border-primary/50 hover:text-primary"}`}>{f}</button>
             ))}
           </div>
         </div>
-
         <div className="text-xs text-muted-foreground bg-secondary/30 rounded-lg px-3 py-2 border border-border">
           <p className="text-primary font-semibold mb-1">High-Speed Download</p>
           <p>Multi-threaded • Resumable • {quality === "1080p" ? "~800MB" : quality === "720p" ? "~400MB" : "~200MB"} est.</p>
         </div>
-
         <Button
           className={`w-full font-bold shadow-neon transition-all ${done ? "bg-green-600 hover:bg-green-600" : "bg-primary text-black hover:bg-primary/90"}`}
           onClick={done ? onClose : startDownload}
           disabled={downloading}
         >
-          {downloading ? (
-            <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" /> Queuing...</>
-          ) : done ? (
-            <><Check className="w-4 h-4 mr-2" /> Added to Queue!</>
-          ) : (
-            <><Download className="w-4 h-4 mr-2" /> Download {quality}</>
-          )}
+          {downloading ? (<><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" /> Queuing...</>) : done ? (<><Check className="w-4 h-4 mr-2" /> Added to Queue!</>) : (<><Download className="w-4 h-4 mr-2" /> Download {quality}</>)}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function SeasonSelector({ malId, seasons, onSelect }: { malId: number; seasons: SeasonEntry[]; onSelect: (id: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = seasons.find(s => s.malId === malId) ?? seasons[0];
+
+  if (seasons.length <= 1) return null;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 px-4 py-2 bg-card border border-primary/30 rounded-xl text-sm font-semibold text-white hover:border-primary/60 transition-all shadow-neon"
+      >
+        <Layers className="w-4 h-4 text-primary shrink-0" />
+        <span className="line-clamp-1 max-w-[180px]">{current?.title || "Select Season"}</span>
+        <ChevronDown className={`w-4 h-4 text-primary shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-2 left-0 z-40 bg-black/95 backdrop-blur-xl border border-primary/30 rounded-xl shadow-neon-intense overflow-hidden min-w-[240px] max-w-[320px]">
+          {seasons.map((s, i) => (
+            <button
+              key={s.malId}
+              onClick={() => { onSelect(s.malId); setOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-primary/10 transition-colors border-b border-primary/5 last:border-0 ${s.malId === malId ? "bg-primary/10 text-primary" : "text-foreground"}`}
+            >
+              <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">{i + 1}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold line-clamp-1">{s.title || `Entry ${i + 1}`}</p>
+                <p className="text-[10px] text-muted-foreground capitalize">{s.relation}</p>
+              </div>
+              {s.malId === malId && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -140,6 +169,19 @@ export default function WatchPage() {
     query: { enabled: malId > 0, queryKey: getGetAnimeEpisodesQueryKey(malId, {}) },
   });
   const episodes = episodesData?.data ?? [];
+
+  // Seasons / related series
+  const { data: seasonsData } = useQuery({
+    queryKey: ["anime-seasons", malId],
+    queryFn: async () => {
+      const res = await fetch(`/api/anime/${malId}/seasons`);
+      if (!res.ok) return { data: [] };
+      return res.json();
+    },
+    enabled: malId > 0,
+    staleTime: 30 * 60 * 1000,
+  });
+  const seasons: SeasonEntry[] = seasonsData?.data ?? [];
 
   useEffect(() => {
     if (anime && malId > 0) {
@@ -185,6 +227,12 @@ export default function WatchPage() {
     fetchStream(epNumber);
   };
 
+  const handleSeasonSelect = (seasonMalId: number) => {
+    if (seasonMalId !== malId) {
+      setLocation(`/watch/${seasonMalId}`);
+    }
+  };
+
   const currentProvider = streamData?.providers?.find(p => p.name === activeProvider) ?? streamData?.providers?.[0] ?? null;
   const currentEmbedUrl = currentProvider?.url ?? null;
   const directLink = typeof window !== "undefined" ? `${window.location.origin}/watch/${malId}` : `/watch/${malId}`;
@@ -206,6 +254,34 @@ export default function WatchPage() {
 
       <div className="min-h-screen bg-background pt-16 pb-20">
         <div className="container mx-auto px-4 max-w-7xl mt-6">
+
+          {/* Season selector bar */}
+          {seasons.length > 1 && (
+            <div className="flex items-center gap-3 mb-5 flex-wrap">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                <Layers className="w-4 h-4 text-primary" />
+                <span>Seasons:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {seasons.map((s, i) => (
+                  <button
+                    key={s.malId}
+                    onClick={() => handleSeasonSelect(s.malId)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                      s.malId === malId
+                        ? "bg-primary text-black border-primary shadow-neon"
+                        : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                    }`}
+                    title={s.title}
+                  >
+                    {s.relation === "Current" ? `Season ${i + 1}` : `${s.relation.replace("Alternative version", "Alt").replace("Parent story", "Origin")} ${i + 1}`}
+                  </button>
+                ))}
+              </div>
+              <SeasonSelector malId={malId} seasons={seasons} onSelect={handleSeasonSelect} />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {/* Left: player + info */}
@@ -251,7 +327,7 @@ export default function WatchPage() {
                 )}
               </div>
 
-              {/* Multi-Server Switcher */}
+              {/* Multi-Server Switcher + Language filter */}
               <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Server className="w-4 h-4 text-primary shrink-0" />
@@ -272,7 +348,6 @@ export default function WatchPage() {
                       {srv.label}
                     </button>
                   ))}
-                  {/* Real API providers from stream data */}
                   {streamData?.providers?.filter(p => !EXTRA_SERVERS.find(s => s.name === p.name)).map((provider) => (
                     <button
                       key={provider.name}
@@ -287,8 +362,6 @@ export default function WatchPage() {
                     </button>
                   ))}
                 </div>
-
-                {/* Language filter */}
                 <div className="flex items-center gap-2 pt-1 border-t border-border">
                   <Tv className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <span className="text-xs text-muted-foreground">Language:</span>
@@ -315,11 +388,7 @@ export default function WatchPage() {
                 <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10" onClick={share}>
                   <Share2 className="w-4 h-4 mr-2" /> Share
                 </Button>
-                <Button
-                  variant="outline"
-                  className="border-primary/30 text-primary hover:bg-primary/10"
-                  onClick={() => setLocation("/watch-party")}
-                >
+                <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10" onClick={() => setLocation("/watch-party")}>
                   <Film className="w-4 h-4 mr-2" /> Watch Party
                 </Button>
                 <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10" onClick={startPip} disabled={!currentEmbedUrl}>
@@ -345,11 +414,7 @@ export default function WatchPage() {
                     <div className="space-y-4">
                       <Skeleton className="h-10 w-3/4" />
                       <Skeleton className="h-6 w-1/4" />
-                      <div className="flex gap-2">
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                      </div>
+                      <div className="flex gap-2"><Skeleton className="h-6 w-16 rounded-full" /><Skeleton className="h-6 w-16 rounded-full" /><Skeleton className="h-6 w-16 rounded-full" /></div>
                       <Skeleton className="h-32 w-full mt-4" />
                     </div>
                   ) : anime ? (
@@ -375,12 +440,8 @@ export default function WatchPage() {
                             <Star className="w-4 h-4 mr-1.5 text-primary fill-primary" /> {anime.score?.toFixed(1) || "N/A"}
                           </Badge>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="icon" className="border-border hover:border-primary hover:text-primary bg-secondary/50">
-                              <Heart className="w-4 h-4" />
-                            </Button>
-                            <Button variant="outline" size="icon" className="border-border hover:border-primary hover:text-primary bg-secondary/50" onClick={share}>
-                              <Share2 className="w-4 h-4" />
-                            </Button>
+                            <Button variant="outline" size="icon" className="border-border hover:border-primary hover:text-primary bg-secondary/50"><Heart className="w-4 h-4" /></Button>
+                            <Button variant="outline" size="icon" className="border-border hover:border-primary hover:text-primary bg-secondary/50" onClick={share}><Share2 className="w-4 h-4" /></Button>
                           </div>
                         </div>
                       </div>
@@ -413,7 +474,7 @@ export default function WatchPage() {
 
               {/* Mobile episode list */}
               <div className="lg:hidden bg-card border border-border rounded-xl p-5">
-                <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4">Episodes</h3>
+                <EpisodeListHeader episodes={episodes} />
                 <EpisodeList episodes={episodes} loading={epsLoading} selectedEp={selectedEp} onSelect={handleEpisodeClick} maxHeight="300px" />
               </div>
 
@@ -423,10 +484,7 @@ export default function WatchPage() {
             {/* Right sidebar */}
             <div className="flex flex-col gap-6">
               <div className="hidden lg:block bg-card border border-border rounded-xl p-5 shadow-lg">
-                <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex justify-between items-center">
-                  <span>Episodes</span>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary">{episodes.length}</Badge>
-                </h3>
+                <EpisodeListHeader episodes={episodes} />
                 <EpisodeList episodes={episodes} loading={epsLoading} selectedEp={selectedEp} onSelect={handleEpisodeClick} maxHeight="500px" />
               </div>
 
@@ -441,6 +499,15 @@ export default function WatchPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function EpisodeListHeader({ episodes }: { episodes: any[] }) {
+  return (
+    <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex justify-between items-center">
+      <span>Episodes</span>
+      <Badge variant="secondary" className="bg-primary/10 text-primary">{episodes.length}</Badge>
+    </h3>
   );
 }
 
@@ -471,9 +538,7 @@ function LiveChat({ chatMsg, setChatMsg }: { chatMsg: string; setChatMsg: (v: st
       </div>
       <div className="relative">
         <input type="text" value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Say something..." className="w-full bg-secondary border border-border rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none focus:border-primary/50 text-white" />
-        <button onClick={send} className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-1.5 hover:bg-primary/10 rounded-full transition-colors">
-          <Send className="w-4 h-4" />
-        </button>
+        <button onClick={send} className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-1.5 hover:bg-primary/10 rounded-full transition-colors"><Send className="w-4 h-4" /></button>
       </div>
     </>
   );

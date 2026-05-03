@@ -12,23 +12,13 @@ router.get("/reviews/:contentType/:contentId", async (req: Request, res: Respons
     const reviews = await db
       .select()
       .from(reviewsTable)
-      .where(
-        and(
-          eq(reviewsTable.contentType, contentType),
-          eq(reviewsTable.contentId, contentId)
-        )
-      )
+      .where(and(eq(reviewsTable.contentType, contentType), eq(reviewsTable.contentId, contentId)))
       .orderBy(desc(reviewsTable.createdAt));
 
     const avgResult = await db
       .select({ avg: avg(reviewsTable.rating) })
       .from(reviewsTable)
-      .where(
-        and(
-          eq(reviewsTable.contentType, contentType),
-          eq(reviewsTable.contentId, contentId)
-        )
-      );
+      .where(and(eq(reviewsTable.contentType, contentType), eq(reviewsTable.contentId, contentId)));
 
     const averageRating = avgResult[0]?.avg ? parseFloat(avgResult[0].avg as string) : null;
 
@@ -75,6 +65,32 @@ router.post("/reviews/:contentType/:contentId", async (req: Request, res: Respon
   } catch (err: any) {
     req.log.error({ err }, "Failed to create review");
     res.status(500).json({ error: "Failed to create review" });
+  }
+});
+
+// DELETE /api/reviews/:id — Admin: delete a specific review by ID
+router.delete("/reviews/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid review ID" });
+      return;
+    }
+
+    const deleted = await db
+      .delete(reviewsTable)
+      .where(eq(reviewsTable.id, id))
+      .returning();
+
+    if (deleted.length === 0) {
+      res.status(404).json({ error: "Review not found" });
+      return;
+    }
+
+    res.json({ success: true, deleted: deleted[0] });
+  } catch (err: any) {
+    req.log.error({ err }, "Failed to delete review");
+    res.status(500).json({ error: "Failed to delete review" });
   }
 });
 
