@@ -129,6 +129,51 @@ export function useRecentlyVisited() {
   return { recent, addRecent };
 }
 
+// ─── Watch Progress ───────────────────────────────────────────────────────────
+
+export interface WatchProgress {
+  malId: string;
+  title: string;
+  image: string | null;
+  episode: number;
+  watchedSeconds: number;
+  totalSeconds: number;
+  updatedAt: string;
+}
+
+export function useWatchProgress() {
+  const [progress, setProgress] = useLocalStorage<Record<string, WatchProgress>>("zaix_progress", {});
+
+  const saveProgress = useCallback(
+    (item: Omit<WatchProgress, "updatedAt">) => {
+      setProgress((prev) => ({
+        ...prev,
+        [item.malId]: { ...item, updatedAt: new Date().toISOString() },
+      }));
+    },
+    [setProgress],
+  );
+
+  const getProgress = useCallback((malId: string): WatchProgress | null => progress[malId] ?? null, [progress]);
+
+  const clearProgress = useCallback(
+    (malId: string) => {
+      setProgress((prev) => {
+        const next = { ...prev };
+        delete next[malId];
+        return next;
+      });
+    },
+    [setProgress],
+  );
+
+  const allProgress = Object.values(progress).sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+
+  return { allProgress, saveProgress, getProgress, clearProgress };
+}
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export function useNotifications() {

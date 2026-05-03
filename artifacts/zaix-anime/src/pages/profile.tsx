@@ -99,7 +99,7 @@ export default function ProfilePage() {
         {/* Profile header */}
         <div className="bg-card border border-border rounded-2xl p-6 mb-6 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10 pointer-events-none"
-            style={{ background: "radial-gradient(ellipse at 20% 50%, rgba(57,255,20,0.4) 0%, transparent 60%)" }} />
+            style={{ background: "radial-gradient(ellipse at 20% 50%, rgba(168,85,247,0.4) 0%, transparent 60%)" }} />
           <div className="relative flex items-center gap-5 flex-wrap">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 border-2 border-primary/40 flex items-center justify-center shadow-neon shrink-0 relative">
               <span className="text-4xl">🎌</span>
@@ -142,7 +142,7 @@ export default function ProfilePage() {
                           width: `${xpData.progressPct}%`,
                           background: tier
                             ? `linear-gradient(90deg, ${tier.color.includes("amber") ? "#b45309,#d97706" : tier.color.includes("slate") ? "#94a3b8,#cbd5e1" : tier.color.includes("cyan") ? "#06b6d4,#22d3ee" : "#fb923c,#f97316"})`
-                            : "linear-gradient(90deg, #39ff14, #00ff88)",
+                            : "linear-gradient(90deg, #7c3aed, #a855f7, #6366f1)",
                         }}
                       />
                     </div>

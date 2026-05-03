@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import heroBg from "@/assets/hero-bg.png";
 import { Search, History, Sparkles, BookOpen, Users, Heart, Play, ExternalLink, ChevronDown, X } from "lucide-react";
-import { useRecentlyVisited } from "@/hooks/use-local-store";
+import { useRecentlyVisited, useWatchProgress } from "@/hooks/use-local-store";
 import { cachedFetchJson } from "@/hooks/api-cache";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -52,13 +52,33 @@ const TAB_CONFIG: { key: ContentTab; label: string; emoji: string }[] = [
 
 type ContentTab = "anime" | "manga" | "manhwa" | "donghua";
 
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 function ContinueWatchingCard({ item }: { item: any }) {
-  const href = item.contentType === "anime" || item.type === "anime"
-    ? `/watch/${item.contentId || item.id}`
-    : `/manga/${item.contentId || item.id}`;
+  const id = item.contentId || item.malId || item.id;
+  const isAnime = item.contentType === "anime" || item.type === "anime";
+  const episode = item.episode;
+  const href = isAnime
+    ? `/watch/${id}${episode ? `?ep=${episode}` : ""}`
+    : `/manga/${id}`;
   const title = item.contentTitle || item.title;
   const image = item.contentImage || item.image;
-  const episode = item.episode;
+  const watchedSeconds: number = item.watchedSeconds ?? 0;
+  const totalSeconds: number = item.totalSeconds ?? 1440;
+  const progressPct = totalSeconds > 0 ? Math.min(100, (watchedSeconds / totalSeconds) * 100) : 0;
+  const minsLeft = watchedSeconds > 0 && totalSeconds > 0
+    ? Math.max(1, Math.round((totalSeconds - watchedSeconds) / 60))
+    : null;
+  const timeAgo = item.updatedAt ? formatTimeAgo(item.updatedAt) : null;
+
   return (
     <Link href={href}>
       <div className="group relative aspect-[3/4] rounded-xl overflow-hidden border border-border hover:border-primary hover:shadow-neon transition-all duration-300 cursor-pointer">
@@ -67,15 +87,43 @@ function ContinueWatchingCard({ item }: { item: any }) {
         ) : (
           <div className="w-full h-full bg-secondary animate-pulse" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent" />
+
+        {/* Resume overlay on hover */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-12 h-12 rounded-full bg-primary/20 backdrop-blur-md flex items-center justify-center border border-primary/40">
-            <Play className="w-6 h-6 text-primary" />
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="w-12 h-12 rounded-full bg-primary/20 backdrop-blur-md flex items-center justify-center border border-primary/40 shadow-neon">
+              <Play className="w-5 h-5 text-primary fill-primary" />
+            </div>
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-primary/30">
+              Resume
+            </span>
           </div>
         </div>
+
+        {/* Bottom info */}
         <div className="absolute bottom-0 left-0 right-0 p-3">
-          <p className="text-sm font-bold text-white line-clamp-1 text-shadow-neon">{title}</p>
-          {episode && <p className="text-xs text-primary mt-0.5">Ep {episode}</p>}
+          <p className="text-sm font-bold text-white line-clamp-1 leading-tight">{title}</p>
+          <div className="flex items-center justify-between mt-0.5 gap-1">
+            {episode && (
+              <span className="text-xs font-semibold text-primary">Ep {episode}</span>
+            )}
+            {minsLeft !== null ? (
+              <span className="text-[10px] text-white/50 ml-auto">{minsLeft}m left</span>
+            ) : timeAgo ? (
+              <span className="text-[10px] text-white/40 ml-auto">{timeAgo}</span>
+            ) : null}
+          </div>
+
+          {/* Progress bar */}
+          {progressPct > 0 && (
+            <div className="mt-2 h-[3px] rounded-full bg-white/15 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${progressPct}%`, boxShadow: "0 0 6px rgba(168,85,247,0.6)" }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </Link>
@@ -86,6 +134,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<ContentTab>("anime");
   const [, setLocation] = useLocation();
   const { recent } = useRecentlyVisited();
+  const { allProgress, getProgress } = useWatchProgress();
   const { user } = useAuth();
   const liveUsers = useLiveUsers();
   const heroBgRef = useRef<HTMLDivElement>(null);
@@ -183,9 +232,29 @@ export default function Home() {
   const recommendedGenre = recommendationsData?.genre ?? recGenre;
 
   const dbWatchingItems = (watchlistData?.items ?? []).filter((i: any) => i.status === "watching" && i.contentType === "anime");
+
   const continueWatching = user
-    ? dbWatchingItems.slice(0, 6)
-    : recent.filter(r => r.type === "anime").slice(0, 6);
+    ? dbWatchingItems.slice(0, 6).map((item: any) => {
+        const lp = getProgress(String(item.contentId));
+        return {
+          ...item,
+          episode: lp?.episode ?? item.episode,
+          watchedSeconds: lp?.watchedSeconds ?? 0,
+          totalSeconds: lp?.totalSeconds ?? 1440,
+          updatedAt: lp?.updatedAt ?? item.updatedAt,
+        };
+      })
+    : allProgress.slice(0, 6).map((p) => ({
+        id: p.malId,
+        malId: p.malId,
+        type: "anime",
+        title: p.title,
+        image: p.image,
+        episode: p.episode,
+        watchedSeconds: p.watchedSeconds,
+        totalSeconds: p.totalSeconds,
+        updatedAt: p.updatedAt,
+      }));
 
   return (
     <main className="min-h-screen bg-background pb-20">
@@ -209,7 +278,7 @@ export default function Home() {
 
         {/* Layered gradient overlays */}
         <div className="absolute inset-0 z-[1]" style={{
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0.65) 65%, rgba(0,0,0,0.97) 100%)"
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 35%, rgba(5,0,15,0.70) 65%, rgba(10,0,26,0.98) 100%)"
         }} />
         {/* Subtle side vignette so edges feel cinematic */}
         <div className="absolute inset-0 z-[2]" style={{
@@ -345,7 +414,7 @@ export default function Home() {
             </Button>
           </div>
           <div className="mt-6 flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-primary/25 bg-black/50 backdrop-blur-md shadow-neon">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: "0 0 6px #39ff14" }} />
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: "0 0 6px #a855f7" }} />
             <Users className="w-3.5 h-3.5 text-primary" />
             <span className="text-sm font-bold text-white">{liveUsers.toLocaleString()}</span>
             <span className="text-xs text-muted-foreground font-medium">watching right now</span>

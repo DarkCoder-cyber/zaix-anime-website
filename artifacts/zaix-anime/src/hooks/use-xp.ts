@@ -54,7 +54,7 @@ export function useXp(isLoggedIn: boolean) {
           style: {
             background: "rgba(0,0,0,0.95)",
             border: `1px solid ${level > 60 ? "rgba(251,146,60,0.6)" : level > 30 ? "rgba(34,211,238,0.6)" : level > 10 ? "rgba(203,213,225,0.6)" : "rgba(180,83,9,0.6)"}`,
-            boxShadow: `0 0 20px ${level > 60 ? "rgba(251,146,60,0.3)" : level > 30 ? "rgba(34,211,238,0.3)" : "rgba(57,255,20,0.2)"}`,
+            boxShadow: `0 0 20px ${level > 60 ? "rgba(251,146,60,0.3)" : level > 30 ? "rgba(34,211,238,0.3)" : "rgba(168,85,247,0.2)"}`,
           },
         }
       );

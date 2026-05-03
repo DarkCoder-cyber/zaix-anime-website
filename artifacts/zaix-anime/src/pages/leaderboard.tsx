@@ -90,7 +90,7 @@ function XpBar({ xp, period }: { xp: number; period: Period }) {
               : tier.color.includes("slate") ? "linear-gradient(90deg,#94a3b8,#cbd5e1)"
               : tier.color.includes("cyan") ? "linear-gradient(90deg,#06b6d4,#22d3ee)"
               : "linear-gradient(90deg,#fb923c,#f97316)"
-            : "linear-gradient(90deg,#39ff14,#00ff88)",
+            : "linear-gradient(90deg,#7c3aed,#a855f7,#6366f1)",
         }} />
     </div>
   );
@@ -272,7 +272,7 @@ export default function LeaderboardPage() {
                         </div>
                         {isMe && (
                           <span className="absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{ background: "rgba(57,255,20,0.2)", border: "1px solid rgba(57,255,20,0.4)", color: "#39ff14" }}>
+                            style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.4)", color: "#a855f7" }}>
                             YOU
                           </span>
                         )}
@@ -325,7 +325,7 @@ export default function LeaderboardPage() {
                         }
                         {isMe && (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{ background: "rgba(57,255,20,0.15)", border: "1px solid rgba(57,255,20,0.4)", color: "#39ff14" }}>
+                            style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.4)", color: "#a855f7" }}>
                             YOU
                           </span>
                         )}

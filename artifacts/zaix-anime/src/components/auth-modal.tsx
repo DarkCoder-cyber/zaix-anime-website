@@ -64,7 +64,7 @@ export function AuthModal() {
 
   return (
     <Dialog open={isModalOpen} onOpenChange={setModalOpen}>
-      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(32px) saturate(200%)", WebkitBackdropFilter: "blur(32px) saturate(200%)", border: "1px solid rgba(57,255,20,0.35)", boxShadow: "0 0 60px rgba(57,255,20,0.15), 0 25px 50px rgba(0,0,0,0.8)" }}>
+      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(32px) saturate(200%)", WebkitBackdropFilter: "blur(32px) saturate(200%)", border: "1px solid rgba(168,85,247,0.35)", boxShadow: "0 0 60px rgba(168,85,247,0.15), 0 25px 50px rgba(0,0,0,0.8)" }}>
         <DialogTitle className="sr-only">Authentication</DialogTitle>
         <div className="p-6">
           <div className="text-center mb-6">

@@ -31,7 +31,7 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
         <div style={{
           position: "absolute", top: "30%", left: "50%", transform: "translate(-50%,-50%)",
           width: 500, height: 500, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(57,255,20,0.12) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(168,85,247,0.12) 0%, transparent 70%)",
           opacity: phase === "in" ? 0 : 1,
           transition: "opacity 0.8s ease",
         }} />
@@ -61,8 +61,8 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
         <div style={{
           width: 96, height: 96, borderRadius: 22,
           background: "linear-gradient(135deg,#111 0%,#1a1a1a 100%)",
-          border: "2px solid rgba(57,255,20,0.5)",
-          boxShadow: "0 0 40px rgba(57,255,20,0.35), 0 0 80px rgba(57,255,20,0.12)",
+          border: "2px solid rgba(168,85,247,0.5)",
+          boxShadow: "0 0 40px rgba(168,85,247,0.35), 0 0 80px rgba(168,85,247,0.12)",
           display: "flex", alignItems: "center", justifyContent: "center",
           position: "relative", overflow: "hidden",
         }}>
@@ -70,8 +70,8 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
           <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M10 12 L50 12 L16 48 L50 48"
-              stroke="#39ff14" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"
-              style={{ filter: "drop-shadow(0 0 8px #39ff14)" }}
+              stroke="#a855f7" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"
+              style={{ filter: "drop-shadow(0 0 8px #a855f7)" }}
             />
           </svg>
 
@@ -89,7 +89,7 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
             fontSize: 44, fontWeight: 900, letterSpacing: "-0.02em",
             fontFamily: "'Inter', system-ui, sans-serif",
             color: "#fff",
-            textShadow: "0 0 30px rgba(57,255,20,0.4)",
+            textShadow: "0 0 30px rgba(168,85,247,0.4)",
             lineHeight: 1,
           }}>
             ZAIX
@@ -106,8 +106,8 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
         <div style={{ width: 120, height: 2, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginTop: 8 }}>
           <div style={{
             height: "100%", borderRadius: 99,
-            background: "linear-gradient(90deg, #39ff14, #00ff88)",
-            boxShadow: "0 0 8px rgba(57,255,20,0.7)",
+            background: "linear-gradient(90deg, #7c3aed, #a855f7, #c084fc)",
+            boxShadow: "0 0 8px rgba(168,85,247,0.7)",
             width: phase === "hold" || phase === "out" ? "100%" : "0%",
             transition: phase === "hold" ? "width 1s ease" : "none",
           }} />

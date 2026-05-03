@@ -31,17 +31,17 @@ function MaintenanceScreen() {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
       <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
-        style={{ background: "radial-gradient(circle, rgba(57,255,20,0.15) 0%, transparent 70%)", border: "2px solid rgba(57,255,20,0.4)", boxShadow: "0 0 40px rgba(57,255,20,0.3)" }}>
+        style={{ background: "radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)", border: "2px solid rgba(168,85,247,0.4)", boxShadow: "0 0 40px rgba(168,85,247,0.3)" }}>
         <span className="text-5xl">⚡</span>
       </div>
-      <h1 className="text-4xl sm:text-6xl font-black font-heading text-white tracking-tight mb-3" style={{ textShadow: "0 0 30px rgba(57,255,20,0.5)" }}>
-        ZAIX <span style={{ color: "#39ff14" }}>ANIME</span>
+      <h1 className="text-4xl sm:text-6xl font-black font-heading text-white tracking-tight mb-3" style={{ textShadow: "0 0 30px rgba(168,85,247,0.5)" }}>
+        ZAIX <span style={{ color: "#a855f7" }}>ANIME</span>
       </h1>
       <p className="text-xl sm:text-2xl font-bold text-white/80 mb-3">Coming Back Soon</p>
       <p className="text-muted-foreground max-w-md mb-8 leading-relaxed">We're upgrading the platform. Hang tight — something awesome is on the way.</p>
-      <div className="flex items-center gap-3 px-6 py-3 rounded-full border" style={{ borderColor: "rgba(57,255,20,0.3)", background: "rgba(57,255,20,0.05)" }}>
-        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#39ff14", boxShadow: "0 0 8px #39ff14" }} />
-        <span className="text-sm font-semibold" style={{ color: "#39ff14" }}>Maintenance in progress</span>
+      <div className="flex items-center gap-3 px-6 py-3 rounded-full border" style={{ borderColor: "rgba(168,85,247,0.3)", background: "rgba(168,85,247,0.05)" }}>
+        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#a855f7", boxShadow: "0 0 8px #a855f7" }} />
+        <span className="text-sm font-semibold" style={{ color: "#a855f7" }}>Maintenance in progress</span>
       </div>
     </div>
   );
@@ -77,14 +77,14 @@ function Footer() {
           {/* Brand */}
           <div className="flex flex-col gap-4 sm:col-span-2 lg:col-span-1">
             <div>
-              <p className="font-heading text-2xl font-black text-white">ZAIX <span className="text-primary" style={{ textShadow: "0 0 12px #39ff14" }}>ANIME</span></p>
+              <p className="font-heading text-2xl font-black text-white">ZAIX <span className="text-primary" style={{ textShadow: "0 0 12px #a855f7" }}>ANIME</span></p>
               <p className="text-xs text-muted-foreground mt-1">Stream. Binge. Discover.</p>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
               Your ultimate destination for anime, manga & manhwa. Community-driven, always free.
             </p>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: "0 0 6px #39ff14" }} />
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: "0 0 6px #a855f7" }} />
               <span className="text-xs text-muted-foreground">1,200+ fans watching right now</span>
             </div>
           </div>
@@ -192,7 +192,7 @@ function App() {
             position="bottom-right"
             theme="dark"
             toastOptions={{
-              style: { background: "rgba(0,0,0,0.95)", border: "1px solid rgba(57,255,20,0.3)", color: "#fff", backdropFilter: "blur(12px)" },
+              style: { background: "rgba(0,0,0,0.95)", border: "1px solid rgba(168,85,247,0.3)", color: "#fff", backdropFilter: "blur(12px)" },
             }}
           />
         </AuthProvider>

@@ -33,7 +33,7 @@ export function GlobalAlertBanner() {
   return (
     <div
       className="w-full flex items-center gap-3 px-4 py-2 text-black text-sm font-bold overflow-hidden relative z-[60] shrink-0"
-      style={{ background: "linear-gradient(90deg, #39ff14, #00ff88, #39ff14)", backgroundSize: "200% 100%", animation: "alertPulse 3s linear infinite" }}
+      style={{ background: "linear-gradient(90deg, #7c3aed, #a855f7, #c084fc, #a855f7, #7c3aed)", backgroundSize: "200% 100%", animation: "alertPulse 3s linear infinite" }}
     >
       <style>{`
         @keyframes alertPulse { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }

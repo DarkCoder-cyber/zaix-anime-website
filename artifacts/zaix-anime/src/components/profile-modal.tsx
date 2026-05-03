@@ -82,13 +82,13 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
           style={{
             background: isAdmin
               ? "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(0,0,0,1), rgba(255,165,0,0.1))"
-              : "linear-gradient(135deg, rgba(57,255,20,0.2), black, rgba(57,255,20,0.1))",
+              : "linear-gradient(135deg, rgba(168,85,247,0.2), black, rgba(168,85,247,0.1))",
           }}
         >
           <div className="absolute inset-0" style={{
             background: isAdmin
               ? "radial-gradient(ellipse at top right, rgba(255,215,0,0.15), transparent)"
-              : "radial-gradient(ellipse at top right, rgba(57,255,20,0.15), transparent)"
+              : "radial-gradient(ellipse at top right, rgba(168,85,247,0.15), transparent)"
           }} />
           <button onClick={onClose} className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground hover:text-white hover:bg-white/10 transition-colors">
             <X className="w-4 h-4" />

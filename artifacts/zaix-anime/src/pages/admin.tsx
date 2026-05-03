@@ -374,7 +374,7 @@ export default function AdminPage() {
               {analyticsLoading ? (
                 [1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)
               ) : ([
-                { label: "Registered Users", value: analytics?.totalUsers ?? 0, icon: "👥", color: "#39ff14" },
+                { label: "Registered Users", value: analytics?.totalUsers ?? 0, icon: "👥", color: "#a855f7" },
                 { label: "Total Reviews", value: analytics?.totalReviews ?? 0, icon: "📝", color: "#FFD700" },
                 { label: "Banned Users", value: bannedUsers.length, icon: "🚫", color: "#FF4444" },
                 { label: "Tagged Anime", value: Object.keys(trendingTags).length, icon: "📈", color: "#FF8C00" },
@@ -416,8 +416,8 @@ export default function AdminPage() {
             <h2 className="font-bold text-white flex items-center gap-2"><Megaphone className="w-4 h-4 text-primary" /> Global Alert System</h2>
             <p className="text-sm text-muted-foreground">Publish a scrolling neon announcement visible to <strong className="text-white">all users</strong> at the top of the site.</p>
             {activeAlert && (
-              <div className="rounded-xl p-4 border flex items-start gap-3" style={{ background: "rgba(57,255,20,0.05)", borderColor: "rgba(57,255,20,0.3)" }}>
-                <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 animate-pulse" style={{ background: "#39ff14" }} />
+              <div className="rounded-xl p-4 border flex items-start gap-3" style={{ background: "rgba(168,85,247,0.05)", borderColor: "rgba(168,85,247,0.3)" }}>
+                <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 animate-pulse" style={{ background: "#a855f7" }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-primary mb-1">LIVE ALERT</p>
                   <p className="text-white text-sm font-medium break-words">{activeAlert.message}</p>
@@ -460,7 +460,7 @@ export default function AdminPage() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Preview</p>
               <div className="rounded-lg overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-2 text-black text-sm font-bold"
-                  style={{ background: "linear-gradient(90deg, #39ff14, #00ff88, #39ff14)" }}>
+                  style={{ background: "linear-gradient(90deg, #7c3aed, #a855f7, #c084fc, #a855f7, #7c3aed)" }}>
                   <Megaphone className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">{alertMsg || "Your alert message will scroll here for everyone to see..."}</span>
                 </div>

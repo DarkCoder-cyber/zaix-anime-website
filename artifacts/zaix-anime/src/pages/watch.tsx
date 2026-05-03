@@ -9,7 +9,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { ReviewSection } from "@/components/review-section";
 import { WatchlistButton } from "@/components/watchlist-button";
-import { useRecentlyVisited } from "@/hooks/use-local-store";
+import { useRecentlyVisited, useWatchProgress } from "@/hooks/use-local-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -145,7 +145,7 @@ function EpisodeList({ episodes, loading, selectedEp, onSelect, maxHeight }: Epi
     <div className="overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2" style={{ maxHeight }}>
       {episodes.map((ep) => (
         <button key={ep.number} data-testid={`ep-btn-${ep.number}`} onClick={() => onSelect(ep.number)}
-          className={`flex gap-3 items-center text-left p-2.5 rounded-lg transition-all border w-full ${selectedEp === ep.number ? "bg-primary/10 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] text-primary" : "bg-secondary/30 border-transparent hover:bg-secondary hover:border-primary/30 text-foreground"}`}>
+          className={`flex gap-3 items-center text-left p-2.5 rounded-lg transition-all border w-full ${selectedEp === ep.number ? "bg-primary/10 border-primary shadow-[inset_0_0_10px_rgba(168,85,247,0.1)] text-primary" : "bg-secondary/30 border-transparent hover:bg-secondary hover:border-primary/30 text-foreground"}`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold font-mono text-xs ${selectedEp === ep.number ? "bg-primary text-black" : "bg-black/50 text-muted-foreground"}`}>{ep.number}</div>
           <div className="flex flex-col gap-0.5 flex-1 min-w-0">
             <h4 className="text-sm font-medium line-clamp-1" title={ep.title || `Episode ${ep.number}`}>{ep.title || `Episode ${ep.number}`}</h4>
@@ -230,6 +230,8 @@ export default function WatchPage() {
   const { authenticated: isAdmin } = useAdmin();
   const { user } = useAuth();
   const { level: userLevel, awardXp } = useXp(!!user);
+  const { saveProgress } = useWatchProgress();
+  const initialEpRef = useRef<number | null>(null);
   const [selectedEp, setSelectedEp] = useState<number>(1);
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [streamLoading, setStreamLoading] = useState(false);
@@ -263,6 +265,16 @@ export default function WatchPage() {
 
   useEffect(() => { activeProviderRef.current = activeProvider; }, [activeProvider]);
 
+  // Read ?ep=N from URL on first mount and auto-start that episode
+  useEffect(() => {
+    const ep = new URLSearchParams(window.location.search).get("ep");
+    const n = ep ? parseInt(ep, 10) : NaN;
+    if (!isNaN(n) && n > 0) {
+      initialEpRef.current = n;
+      setSelectedEp(n);
+    }
+  }, []);
+
   const { data: anime, isLoading: animeLoading } = useGetAnimeById(malId, {
     query: { enabled: malId > 0, queryKey: getGetAnimeByIdQueryKey(malId) },
   });
@@ -284,6 +296,17 @@ export default function WatchPage() {
     query: { enabled: malId > 0, queryKey: getGetAnimeEpisodesQueryKey(malId, {}) },
   });
   const episodes = episodesData?.data ?? [];
+
+  // Once episodes load, fire the episode from the URL ?ep= param
+  useEffect(() => {
+    const initEp = initialEpRef.current;
+    if (!initEp || episodes.length === 0) return;
+    if (episodes.some((ep: any) => ep.number === initEp)) {
+      initialEpRef.current = null;
+      handleEpisodeClick(initEp);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [episodes]);
 
   const { data: seasonsData } = useQuery({
     queryKey: ["anime-seasons", malId],
@@ -398,6 +421,19 @@ export default function WatchPage() {
     }
   }, [playerSeconds, user, awardXp]);
 
+  // Save watch progress to localStorage every 30 s (works for guests too)
+  useEffect(() => {
+    if (playerSeconds === 0 || playerSeconds % 30 !== 0 || !anime) return;
+    saveProgress({
+      malId: String(malId),
+      title: anime.title,
+      image: (anime as any).image ?? null,
+      episode: selectedEp,
+      watchedSeconds: playerSeconds,
+      totalSeconds: 1440,
+    });
+  }, [playerSeconds, anime, malId, selectedEp, saveProgress]);
+
   const startPlayerTimer = useCallback(() => {
     if (playerTimerRef.current) clearInterval(playerTimerRef.current);
     setPlayerSeconds(0);
@@ -465,8 +501,19 @@ export default function WatchPage() {
   const handleEpisodeClick = (epNumber: number) => {
     setSelectedEp(epNumber);
     fetchStream(epNumber);
-    // Save progress to DB
+    // Save progress to DB (logged-in users)
     saveProgressToDb(String(malId), epNumber);
+    // Save to localStorage (all users — seeds Continue Watching)
+    if (anime) {
+      saveProgress({
+        malId: String(malId),
+        title: anime.title,
+        image: (anime as any).image ?? null,
+        episode: epNumber,
+        watchedSeconds: 0,
+        totalSeconds: 1440,
+      });
+    }
     // Save to watchlist as "watching"
     if (user && anime) {
       saveToWatchlistDb(
@@ -661,7 +708,7 @@ export default function WatchPage() {
                     <button
                       onClick={() => setShowSkipIntro(false)}
                       className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all"
-                      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", border: "1px solid rgba(57,255,20,0.5)", color: "#39ff14", boxShadow: "0 0 20px rgba(57,255,20,0.25)" }}>
+                      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", border: "1px solid rgba(168,85,247,0.5)", color: "#a855f7", boxShadow: "0 0 20px rgba(168,85,247,0.25)" }}>
                       <SkipForward className="w-4 h-4" /> Skip Intro
                       <span className="text-xs opacity-60 ml-0.5 font-mono">[I]</span>
                     </button>
@@ -674,7 +721,7 @@ export default function WatchPage() {
                     <button
                       onClick={() => setShowSkipOutro(false)}
                       className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all"
-                      style={{ background: "rgba(57,255,20,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(57,255,20,0.6)", color: "#39ff14", boxShadow: "0 0 20px rgba(57,255,20,0.3)" }}>
+                      style={{ background: "rgba(168,85,247,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(168,85,247,0.6)", color: "#a855f7", boxShadow: "0 0 20px rgba(168,85,247,0.3)" }}>
                       <SkipForward className="w-4 h-4" /> Skip Outro
                       <span className="text-xs opacity-60 ml-0.5 font-mono">[O]</span>
                     </button>
@@ -689,12 +736,12 @@ export default function WatchPage() {
                     title={ambientEnabled ? "Disable Ambient Mode" : "Enable Ambient Mode"}
                     className="absolute top-3 right-12 z-20 p-1.5 rounded-lg transition-all"
                     style={{
-                      background: ambientEnabled ? "rgba(57,255,20,0.15)" : "rgba(0,0,0,0.6)",
+                      background: ambientEnabled ? "rgba(168,85,247,0.15)" : "rgba(0,0,0,0.6)",
                       backdropFilter: "blur(8px)",
-                      border: ambientEnabled ? "1px solid rgba(57,255,20,0.45)" : "1px solid rgba(255,255,255,0.12)",
+                      border: ambientEnabled ? "1px solid rgba(168,85,247,0.45)" : "1px solid rgba(255,255,255,0.12)",
                       opacity: ambientEnabled ? 1 : 0.45,
                     }}>
-                    <WandSparkles className="w-3.5 h-3.5" style={{ color: ambientEnabled ? "#39ff14" : "white" }} />
+                    <WandSparkles className="w-3.5 h-3.5" style={{ color: ambientEnabled ? "#a855f7" : "white" }} />
                   </button>
                 )}
 
@@ -711,7 +758,7 @@ export default function WatchPage() {
                 {/* Keyboard hints panel */}
                 {showKeyHints && (
                   <div className="absolute top-3 right-[88px] z-30 rounded-xl p-4 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-200"
-                    style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(16px)", border: "1px solid rgba(57,255,20,0.3)", boxShadow: "0 0 30px rgba(0,0,0,0.8)" }}>
+                    style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(16px)", border: "1px solid rgba(168,85,247,0.3)", boxShadow: "0 0 30px rgba(0,0,0,0.8)" }}>
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
                         <Keyboard className="w-3.5 h-3.5 text-primary" /> Shortcuts
@@ -779,7 +826,7 @@ export default function WatchPage() {
                     <span className="text-xs font-semibold text-muted-foreground">Auto-Play</span>
                     <button onClick={toggleAutoPlay} role="switch" aria-checked={autoPlay}
                       className="relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none"
-                      style={{ background: autoPlay ? "#39ff14" : "#333" }}>
+                      style={{ background: autoPlay ? "#a855f7" : "#333" }}>
                       <span className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
                         style={{ transform: autoPlay ? "translateX(22px)" : "translateX(3px)" }} />
                     </button>
@@ -839,7 +886,7 @@ export default function WatchPage() {
 
               {/* Anime Info */}
               <div className="bg-card border border-border p-6 rounded-xl flex flex-col gap-4 relative overflow-hidden"
-                style={anime?.image ? { boxShadow: "0 0 40px rgba(57,255,20,.08)" } : undefined}>
+                style={anime?.image ? { boxShadow: "0 0 40px rgba(168,85,247,.08)" } : undefined}>
                 {anime?.image && (
                   <div className="absolute inset-0 z-0 opacity-5 pointer-events-none">
                     <img src={anime.image} alt="" className="w-full h-full object-cover blur-3xl scale-150" />

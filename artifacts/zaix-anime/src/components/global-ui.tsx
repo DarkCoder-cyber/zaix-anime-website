@@ -50,13 +50,13 @@ function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose
   return (
     <div ref={ref}
       className="absolute bottom-full left-0 mb-2 w-72 rounded-2xl border overflow-hidden z-50"
-      style={{ background: "rgba(10,10,10,0.98)", borderColor: "rgba(57,255,20,0.2)", boxShadow: "0 0 30px rgba(0,0,0,0.7), 0 0 15px rgba(57,255,20,0.08)" }}
+      style={{ background: "rgba(10,10,10,0.98)", borderColor: "rgba(168,85,247,0.2)", boxShadow: "0 0 30px rgba(0,0,0,0.7), 0 0 15px rgba(168,85,247,0.08)" }}
     >
       <div className="flex border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
         {EMOJI_CATEGORIES.map((cat, i) => (
           <button key={cat.label} onClick={() => setTab(i)}
             className="flex-1 py-2 text-xs font-semibold transition-colors"
-            style={tab === i ? { color: "#39ff14", borderBottom: "2px solid #39ff14" } : { color: "rgba(255,255,255,0.35)" }}>
+            style={tab === i ? { color: "#a855f7", borderBottom: "2px solid #a855f7" } : { color: "rgba(255,255,255,0.35)" }}>
             {cat.label}
           </button>
         ))}
@@ -87,7 +87,7 @@ function ChatMessageRow({
   const [showQuick, setShowQuick] = useState(false);
 
   const bubbleStyle = m.isAdmin
-    ? { background: "rgba(57,255,20,0.06)", border: "1.5px solid rgba(57,255,20,0.5)", boxShadow: "0 0 14px rgba(57,255,20,0.2), inset 0 0 8px rgba(57,255,20,0.04)" }
+    ? { background: "rgba(168,85,247,0.06)", border: "1.5px solid rgba(168,85,247,0.5)", boxShadow: "0 0 14px rgba(168,85,247,0.2), inset 0 0 8px rgba(168,85,247,0.04)" }
     : m.isSystem
     ? { background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.35)", boxShadow: "0 0 12px rgba(139,92,246,0.12)" }
     : { background: "rgba(255,255,255,0.04)" };
@@ -114,7 +114,7 @@ function ChatMessageRow({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <span className={`font-bold inline-flex items-center gap-1.5 mr-1 ${m.isAdmin ? "" : "text-primary"}`}
-              style={m.isAdmin ? { color: "#39ff14" } : {}}>
+              style={m.isAdmin ? { color: "#a855f7" } : {}}>
               {m.isAdmin && <AdminCrown size="xs" />}
               {m.userName}:
             </span>
@@ -159,7 +159,7 @@ function ChatMessageRow({
                   title={r.users.slice(0, 5).join(", ")}
                   className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold transition-all active:scale-90"
                   style={mine
-                    ? { background: "rgba(57,255,20,0.18)", border: "1px solid rgba(57,255,20,0.5)", color: "#39ff14" }
+                    ? { background: "rgba(168,85,247,0.18)", border: "1px solid rgba(168,85,247,0.5)", color: "#a855f7" }
                     : { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)" }
                   }
                 >
@@ -268,15 +268,15 @@ function LiveChatBubble() {
     <div className="fixed bottom-24 left-4 sm:left-6 z-50">
       {open && (
         <div className="w-[92vw] max-w-sm sm:w-80 bg-black/95 border rounded-2xl shadow-neon-intense overflow-hidden mb-3"
-          style={{ borderColor: "rgba(57,255,20,0.25)" }}>
+          style={{ borderColor: "rgba(168,85,247,0.25)" }}>
 
           {/* Header */}
           <div className="px-4 py-3 border-b flex items-center justify-between"
-            style={{ borderColor: "rgba(57,255,20,0.15)", background: "rgba(57,255,20,0.04)" }}>
-            <div className="flex items-center gap-2 font-bold text-sm" style={{ color: "#39ff14" }}>
+            style={{ borderColor: "rgba(168,85,247,0.15)", background: "rgba(168,85,247,0.04)" }}>
+            <div className="flex items-center gap-2 font-bold text-sm" style={{ color: "#a855f7" }}>
               <MessageCircle className="w-4 h-4" />
               Live Chat
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#39ff14", boxShadow: "0 0 5px #39ff14" }} />
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#a855f7", boxShadow: "0 0 5px #a855f7" }} />
             </div>
             <button className="text-muted-foreground hover:text-white text-lg leading-none" onClick={() => setOpen(false)}>×</button>
           </div>
@@ -292,7 +292,7 @@ function LiveChatBubble() {
           </div>
 
           {/* Input area */}
-          <div className="p-3 border-t relative" style={{ borderColor: "rgba(57,255,20,0.12)" }}>
+          <div className="p-3 border-t relative" style={{ borderColor: "rgba(168,85,247,0.12)" }}>
             {showEmoji && (
               <EmojiPicker onPick={insertEmoji} onClose={() => setShowEmoji(false)} />
             )}
@@ -300,7 +300,7 @@ function LiveChatBubble() {
               <button
                 onClick={() => setShowEmoji((v) => !v)}
                 className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-white/10"
-                style={{ color: showEmoji ? "#39ff14" : "rgba(255,255,255,0.35)" }}
+                style={{ color: showEmoji ? "#a855f7" : "rgba(255,255,255,0.35)" }}
               >
                 <Smile className="w-4 h-4" />
               </button>
@@ -314,13 +314,13 @@ function LiveChatBubble() {
                 disabled={!myName}
                 className="flex-1 bg-secondary rounded-full px-3 py-2 text-sm text-white focus:outline-none transition-all disabled:opacity-50"
                 style={isAdmin
-                  ? { border: "1.5px solid rgba(57,255,20,0.5)", boxShadow: "0 0 8px rgba(57,255,20,0.15)" }
+                  ? { border: "1.5px solid rgba(168,85,247,0.5)", boxShadow: "0 0 8px rgba(168,85,247,0.15)" }
                   : { border: "1px solid rgba(255,255,255,0.08)" }
                 }
               />
               <button onClick={send} disabled={sending || !input.trim() || !myName}
                 className="w-9 h-9 rounded-full text-black flex items-center justify-center shrink-0 disabled:opacity-40 transition-opacity"
-                style={{ background: "#39ff14", boxShadow: "0 0 10px rgba(57,255,20,0.5)" }}>
+                style={{ background: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.5)" }}>
                 <Send className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -330,7 +330,7 @@ function LiveChatBubble() {
 
       <button onClick={() => setOpen((v) => !v)}
         className="w-14 h-14 rounded-full text-black flex items-center justify-center hover:scale-105 transition-transform"
-        style={{ background: "#39ff14", boxShadow: "0 0 20px rgba(57,255,20,0.5), 0 0 40px rgba(57,255,20,0.2)" }}>
+        style={{ background: "#a855f7", boxShadow: "0 0 20px rgba(168,85,247,0.5), 0 0 40px rgba(168,85,247,0.2)" }}>
         <MessageCircle className="w-6 h-6" />
       </button>
     </div>
