@@ -5,6 +5,7 @@ export const chatMessagesTable = pgTable("chat_messages", {
   userName: text("user_name").notNull().default("Anonymous"),
   message: text("message").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
+  isSystem: boolean("is_system").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

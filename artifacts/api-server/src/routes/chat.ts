@@ -33,6 +33,7 @@ router.post("/chat", async (req: Request, res: Response) => {
         userName: String(userName || "Anonymous").trim().slice(0, 50) || "Anonymous",
         message: String(message).trim().slice(0, 500),
         isAdmin: !!isAdmin,
+        isSystem: false,
       })
       .returning();
     res.status(201).json(inserted);
@@ -42,4 +43,5 @@ router.post("/chat", async (req: Request, res: Response) => {
   }
 });
 
+export { router as chatRouter };
 export default router;

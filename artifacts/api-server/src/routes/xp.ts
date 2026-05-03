@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, chatMessagesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { getSeasonInfo } from "../utils/season-reset";
 
@@ -47,6 +47,17 @@ router.post("/xp/award", async (req: Request, res: Response) => {
   if (amount <= 0 || amount > 100) {
     res.status(400).json({ error: "Amount must be 1–100" }); return;
   }
+
+  // Fetch current XP + username before update to detect level 50 crossing
+  const [before] = await db
+    .select({ totalXp: usersTable.totalXp, username: usersTable.username })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!before) { res.status(404).json({ error: "User not found" }); return; }
+
+  const prevLevel = Math.floor(Math.sqrt((before.totalXp ?? 0) / 100));
+
   const [updated] = await db
     .update(usersTable)
     .set({
@@ -56,6 +67,21 @@ router.post("/xp/award", async (req: Request, res: Response) => {
     .where(eq(usersTable.id, userId))
     .returning({ totalXp: usersTable.totalXp, weeklyXp: usersTable.weeklyXp });
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+
+  const newLevel = Math.floor(Math.sqrt((updated.totalXp ?? 0) / 100));
+
+  // 🏆 Level 50 milestone — post a system message to global chat
+  if (prevLevel < 50 && newLevel >= 50) {
+    try {
+      await db.insert(chatMessagesTable).values({
+        userName: "SYSTEM",
+        message: `🏆 ${before.username} just reached Level 50 — LEGENDARY status! The grind is real. 👑`,
+        isAdmin: false,
+        isSystem: true,
+      });
+    } catch { /* non-critical, don't block the response */ }
+  }
+
   res.json({ ...computeLevelData(updated.totalXp ?? 0), weeklyXp: updated.weeklyXp ?? 0 });
 });
 
