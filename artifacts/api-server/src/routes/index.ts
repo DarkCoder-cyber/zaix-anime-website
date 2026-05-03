@@ -13,6 +13,7 @@ import recommendationsRouter from "./recommendations";
 import profilesRouter from "./profiles";
 import repliesRouter from "./replies";
 import notificationsRouter from "./notifications";
+import streamReportsRouter from "./stream-reports";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(progressRouter);
 router.use(recommendationsRouter);
 router.use(profilesRouter);
 router.use(notificationsRouter);
+router.use(streamReportsRouter);
 
 export default router;

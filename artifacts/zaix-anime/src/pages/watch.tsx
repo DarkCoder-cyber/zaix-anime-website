@@ -4,7 +4,7 @@ import {
   Share2, Heart, MessageSquare, Star, Send, Play, Tv,
   AlertCircle, RefreshCw, Film, PictureInPicture2, WandSparkles,
   Download, Check, X, Server, ChevronDown, Layers, SkipForward,
-  AlertTriangle, Zap, Keyboard, Maximize2,
+  AlertTriangle, Zap, Keyboard, Maximize2, Flag,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ReviewSection } from "@/components/review-section";
@@ -691,6 +691,34 @@ export default function WatchPage() {
                     <span className="text-xs text-muted-foreground ml-1">— switch if one doesn't load</span>
                   </div>
                   <div className="flex items-center gap-2.5">
+                    {streamData && activeProvider && (
+                      <button
+                        onClick={async () => {
+                          const provider = streamData.providers.find(p => p.name === activeProvider);
+                          try {
+                            await fetch("/api/stream-reports", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                malId: streamData.malId,
+                                animeTitle: anime?.title || "Unknown",
+                                episode: selectedEp,
+                                provider: activeProvider,
+                                providerLabel: provider?.label || activeProvider,
+                                reportedBy: "User",
+                              }),
+                            });
+                            toast.success("Report sent to Admin", { description: `${provider?.label || activeProvider} flagged for episode ${selectedEp}` });
+                          } catch {
+                            toast.error("Failed to send report");
+                          }
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all"
+                        title="Report broken stream"
+                      >
+                        <Flag className="w-3 h-3" /> Report Server
+                      </button>
+                    )}
                     <span className="text-xs font-semibold text-muted-foreground">Auto-Play</span>
                     <button onClick={toggleAutoPlay} role="switch" aria-checked={autoPlay}
                       className="relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none"

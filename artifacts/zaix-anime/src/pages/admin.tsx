@@ -9,10 +9,10 @@ import { toast } from "sonner";
 import {
   Shield, Users, Trash2, Ban, TrendingUp, Flame, Search,
   LogOut, Eye, EyeOff, X, RefreshCw, Crown, CheckCircle,
-  AlertTriangle, Power, Megaphone, Flag, BarChart3, Bell
+  AlertTriangle, Power, Megaphone, Flag, BarChart3, Bell, Radio,
 } from "lucide-react";
 
-type Tab = "analytics" | "alert" | "reviews" | "users" | "trending" | "reports";
+type Tab = "analytics" | "alert" | "reviews" | "users" | "trending" | "reports" | "stream_reports";
 
 interface Review {
   id: number; contentType: string; contentId: string;
@@ -22,6 +22,11 @@ interface Report {
   id: number; reviewId: number; contentType: string; contentId: string;
   reportedUser: string; reviewText: string | null; reason: string;
   reportedBy: string; status: string; createdAt: string;
+}
+interface StreamReport {
+  id: number; malId: number; animeTitle: string; episode: number;
+  provider: string; providerLabel: string; reportedBy: string;
+  status: string; createdAt: string;
 }
 interface Analytics { totalUsers: number; totalReviews: number; }
 
@@ -110,6 +115,10 @@ export default function AdminPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
 
+  // Stream Reports
+  const [streamReports, setStreamReports] = useState<StreamReport[]>([]);
+  const [streamReportsLoading, setStreamReportsLoading] = useState(false);
+
   // Users/Trending
   const [banInput, setBanInput] = useState("");
   const [animeSearch, setAnimeSearch] = useState("");
@@ -159,6 +168,35 @@ export default function AdminPage() {
     } catch {} finally { setReportsLoading(false); }
   }, []);
 
+  const fetchStreamReports = useCallback(async () => {
+    setStreamReportsLoading(true);
+    try {
+      const res = await fetch("/api/stream-reports");
+      if (res.ok) { const d = await res.json(); setStreamReports(d.reports ?? []); }
+    } catch {} finally { setStreamReportsLoading(false); }
+  }, []);
+
+  const updateStreamReportStatus = async (id: number, status: string) => {
+    try {
+      const res = await fetch(`/api/stream-reports/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      setStreamReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+      toast.success(`Marked as ${status}`);
+    } catch { toast.error("Failed to update"); }
+  };
+
+  const deleteStreamReport = async (id: number) => {
+    try {
+      await fetch(`/api/stream-reports/${id}`, { method: "DELETE" });
+      setStreamReports(prev => prev.filter(r => r.id !== id));
+      toast.success("Report removed");
+    } catch { toast.error("Failed to delete"); }
+  };
+
   useEffect(() => {
     if (!authenticated) return;
     fetchAnalytics();
@@ -169,7 +207,8 @@ export default function AdminPage() {
     if (authenticated && tab === "reviews") fetchReviews();
     if (authenticated && tab === "reports") fetchReports();
     if (authenticated && tab === "analytics") fetchAnalytics();
-  }, [authenticated, tab, fetchReviews, fetchReports, fetchAnalytics]);
+    if (authenticated && tab === "stream_reports") fetchStreamReports();
+  }, [authenticated, tab, fetchReviews, fetchReports, fetchAnalytics, fetchStreamReports]);
 
   const deleteReview = async (review: Review) => {
     try {
@@ -246,6 +285,7 @@ export default function AdminPage() {
   if (!authenticated) return <LoginScreen onLogin={login} />;
 
   const pendingReports = reports.filter(r => r.status === "pending").length;
+  const pendingStreamReports = streamReports.filter(r => r.status === "pending").length;
 
   const TABS: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: "analytics", label: "Analytics", icon: <BarChart3 className="w-4 h-4" /> },
@@ -254,6 +294,7 @@ export default function AdminPage() {
     { key: "users", label: "Users", icon: <Users className="w-4 h-4" /> },
     { key: "trending", label: "Trending", icon: <TrendingUp className="w-4 h-4" /> },
     { key: "reports", label: "Reports", icon: <Flag className="w-4 h-4" />, badge: pendingReports },
+    { key: "stream_reports", label: "Streams", icon: <Radio className="w-4 h-4" />, badge: pendingStreamReports },
   ];
 
   return (
@@ -574,6 +615,76 @@ export default function AdminPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* === STREAM REPORTS TAB === */}
+        {tab === "stream_reports" && (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-white flex items-center gap-2">
+                <Radio className="w-4 h-4 text-red-400" /> Broken Stream Reports
+                {pendingStreamReports > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">{pendingStreamReports} pending</span>
+                )}
+              </h2>
+              <Button size="sm" variant="outline" className="border-border text-muted-foreground" onClick={fetchStreamReports}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+              </Button>
+            </div>
+            {streamReportsLoading ? (
+              <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+            ) : streamReports.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle className="w-10 h-10 mx-auto mb-3 text-primary/30" />
+                <p>No stream reports yet. All servers are clean!</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {streamReports.map((r) => (
+                  <div key={r.id} className={`bg-card border rounded-xl p-4 flex flex-col gap-3 ${r.status === "pending" ? "border-red-500/30" : "border-border opacity-60"}`}>
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-white line-clamp-1 max-w-[200px]">{r.animeTitle}</span>
+                          <Badge variant="outline" className="text-[9px] px-1.5 border-primary/40 text-primary bg-primary/5">
+                            Ep {r.episode}
+                          </Badge>
+                          <Badge variant="outline" className={`text-[9px] px-1.5 ${r.status === "pending" ? "border-red-500/50 text-red-400 bg-red-500/10" : r.status === "resolved" ? "border-green-500/50 text-green-400" : "border-border text-muted-foreground"}`}>
+                            {r.status.toUpperCase()}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-muted-foreground">Provider:</span>
+                          <span className="text-xs font-bold text-orange-400 border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 rounded">{r.providerLabel}</span>
+                          <span className="text-xs text-muted-foreground font-mono text-muted-foreground/50">({r.provider})</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Reported by: <strong className="text-white">{r.reportedBy}</strong> · MAL ID: <span className="font-mono text-muted-foreground/70">{r.malId}</span></p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {r.status === "pending" && (
+                        <>
+                          <button onClick={() => updateStreamReportStatus(r.id, "resolved")}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-all">
+                            <CheckCircle className="w-3 h-3 inline mr-1" /> Mark Fixed
+                          </button>
+                          <button onClick={() => updateStreamReportStatus(r.id, "dismissed")}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:text-white hover:border-white/30 transition-all">
+                            Dismiss
+                          </button>
+                        </>
+                      )}
+                      <button onClick={() => deleteStreamReport(r.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:text-red-400 hover:border-red-500/30 transition-all">
+                        <X className="w-3 h-3 inline mr-1" /> Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
