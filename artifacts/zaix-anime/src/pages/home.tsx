@@ -269,8 +269,8 @@ export default function Home() {
           <img
             src={heroBg}
             alt="Top anime mashup wallpaper"
-            className="w-full h-full object-cover object-center"
-            style={{ objectPosition: "center center", filter: "brightness(0.7) contrast(1.1)" }}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "top center", filter: "brightness(0.7) contrast(1.1)" }}
             decoding="async"
             fetchPriority="high"
           />
