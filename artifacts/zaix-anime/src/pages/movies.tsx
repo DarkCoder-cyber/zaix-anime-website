@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   Star, Play, Film, ChevronRight, ChevronLeft,
-  Info, Clapperboard, Volume2
+  Info, Clapperboard, Volume2, Search, X
 } from "lucide-react";
 
 interface Movie {
@@ -386,6 +386,9 @@ function FeaturedHero({
 /* ─── Main page ─── */
 export default function MoviesPage() {
   const [activeGenre, setActiveGenre] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [bgUrl, setBgUrl] = useState(DEFAULT_BACKDROP);
   const [bgOpacity, setBgOpacity] = useState(1);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -408,10 +411,19 @@ export default function MoviesPage() {
     .sort((a, b) => parseFloat(b.rating ?? "0") - parseFloat(a.rating ?? "0"))
     .slice(0, 8);
 
-  /* filtered list for the grid */
-  const gridMovies = activeGenre === "All"
-    ? allMovies
-    : allMovies.filter((m) => m.genre === activeGenre);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  /* filtered list for the grid — genre + search combined */
+  const gridMovies = allMovies.filter((m) => {
+    const genreMatch = activeGenre === "All" || m.genre === activeGenre;
+    const searchMatch =
+      !normalizedQuery ||
+      m.title.toLowerCase().includes(normalizedQuery) ||
+      m.genre.toLowerCase().includes(normalizedQuery) ||
+      m.description?.toLowerCase().includes(normalizedQuery) ||
+      m.language.toLowerCase().includes(normalizedQuery);
+    return genreMatch && searchMatch;
+  });
 
   /* sync fixed bg when hero changes */
   const handleHeroMovie = useCallback((movie: Movie) => {
@@ -439,6 +451,23 @@ export default function MoviesPage() {
       setBgUrl(allMovies[0].backdropUrl || DEFAULT_BACKDROP);
     }
   }, [allMovies]);
+
+  /* "/" shortcut to focus search */
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === "Escape" && document.activeElement === searchRef.current) {
+        setSearchQuery("");
+        searchRef.current?.blur();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const showHero = !isLoading && heroMovies.length > 0;
 
@@ -499,21 +528,100 @@ export default function MoviesPage() {
         {/* ── BROWSE SECTION ── */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-10">
 
-          {/* Section label */}
-          <div className="flex items-center justify-between mb-6">
+          {/* Section label + live count */}
+          <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-black text-white flex items-center gap-2.5">
               <div className="w-1 h-5 rounded-full" style={{ background: "linear-gradient(to bottom, #a855f7, #7c3aed)" }} />
               Browse All Films
             </h2>
             {!isLoading && (
-              <span className="text-white/30 text-xs">{gridMovies.length} available</span>
+              <span className="text-xs transition-all duration-200"
+                style={{ color: normalizedQuery ? "rgba(168,85,247,0.8)" : "rgba(255,255,255,0.3)" }}>
+                {normalizedQuery
+                  ? `${gridMovies.length} result${gridMovies.length !== 1 ? "s" : ""} for "${searchQuery.trim()}"`
+                  : `${gridMovies.length} available`}
+              </span>
             )}
           </div>
 
-          {/* Genre filter tabs */}
+          {/* ── Search bar ── */}
+          <div className="relative mb-5 group">
+            <div
+              className="flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300"
+              style={{
+                background: searchFocused
+                  ? "rgba(168,85,247,0.08)"
+                  : "rgba(255,255,255,0.04)",
+                border: searchFocused
+                  ? "1.5px solid rgba(168,85,247,0.5)"
+                  : "1.5px solid rgba(255,255,255,0.08)",
+                backdropFilter: "blur(16px)",
+                boxShadow: searchFocused
+                  ? "0 0 0 4px rgba(168,85,247,0.08), 0 4px 24px rgba(168,85,247,0.12)"
+                  : "none",
+              }}
+              onClick={() => searchRef.current?.focus()}
+            >
+              <Search
+                className="shrink-0 transition-colors duration-200"
+                style={{
+                  width: "18px", height: "18px",
+                  color: searchFocused || normalizedQuery
+                    ? "rgba(168,85,247,0.9)"
+                    : "rgba(255,255,255,0.3)",
+                }}
+              />
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                placeholder="Search movies by title, genre, language…"
+                className="flex-1 bg-transparent text-white text-sm placeholder:text-white/25 outline-none caret-purple-400 font-medium"
+              />
+              {/* Live result count badge while typing */}
+              {normalizedQuery && (
+                <span
+                  className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200"
+                  style={{
+                    background: "rgba(168,85,247,0.15)",
+                    color: "#c084fc",
+                    border: "1px solid rgba(168,85,247,0.3)",
+                  }}
+                >
+                  {gridMovies.length}
+                </span>
+              )}
+              {/* Clear button */}
+              {normalizedQuery && (
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); setSearchQuery(""); searchRef.current?.focus(); }}
+                  className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                  style={{ background: "rgba(255,255,255,0.1)" }}
+                >
+                  <X className="w-3.5 h-3.5 text-white/60" />
+                </button>
+              )}
+            </div>
+
+            {/* Keyboard shortcut hint */}
+            {!searchFocused && !normalizedQuery && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  /
+                </kbd>
+              </div>
+            )}
+          </div>
+
+          {/* Genre filter pills */}
           <div className="flex items-center gap-2 flex-wrap mb-8">
             {GENRE_FILTERS.map((f) => (
-              <button key={f.key} onClick={() => setActiveGenre(f.key)}
+              <button key={f.key}
+                onClick={() => { setActiveGenre(f.key); }}
                 className="px-5 py-2 rounded-full text-sm font-bold transition-all duration-200"
                 style={activeGenre === f.key
                   ? { background: "#a855f7", color: "#fff", boxShadow: "0 0 20px rgba(168,85,247,0.5)", transform: "scale(1.05)" }
@@ -522,6 +630,17 @@ export default function MoviesPage() {
                 {f.label}
               </button>
             ))}
+            {/* Active search chip */}
+            {normalizedQuery && (
+              <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold"
+                style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.35)" }}>
+                <Search className="w-3.5 h-3.5" />
+                {searchQuery.trim()}
+                <button onMouseDown={() => setSearchQuery("")} className="hover:text-white transition-colors ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Grid */}
@@ -533,16 +652,38 @@ export default function MoviesPage() {
             <div className="flex flex-col items-center justify-center py-28 text-center">
               <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5"
                 style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
-                <Film className="w-9 h-9 text-purple-400/40" />
+                {normalizedQuery ? (
+                  <Search className="w-9 h-9 text-purple-400/40" />
+                ) : (
+                  <Film className="w-9 h-9 text-purple-400/40" />
+                )}
               </div>
-              <p className="text-white/40 text-lg font-semibold mb-1">
-                {allMovies.length === 0 ? "No movies yet" : `No ${activeGenre} films yet`}
-              </p>
-              <p className="text-white/25 text-sm">
-                {allMovies.length === 0
-                  ? "Admin can add movies via the upload panel"
-                  : "Try a different genre filter above"}
-              </p>
+              {normalizedQuery ? (
+                <>
+                  <p className="text-white/40 text-lg font-semibold mb-1">
+                    No results for &ldquo;{searchQuery.trim()}&rdquo;
+                  </p>
+                  <p className="text-white/25 text-sm mb-5">Try a different title, genre, or language</p>
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-105"
+                    style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}
+                  >
+                    <X className="w-4 h-4" /> Clear search
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-white/40 text-lg font-semibold mb-1">
+                    {allMovies.length === 0 ? "No movies yet" : `No ${activeGenre} films yet`}
+                  </p>
+                  <p className="text-white/25 text-sm">
+                    {allMovies.length === 0
+                      ? "Admin can add movies via the upload panel"
+                      : "Try a different genre filter above"}
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
