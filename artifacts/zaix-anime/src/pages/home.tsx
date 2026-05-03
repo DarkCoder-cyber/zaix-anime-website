@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { AnimeCard } from "@/components/anime-card";
@@ -88,6 +88,14 @@ export default function Home() {
   const { recent } = useRecentlyVisited();
   const { user } = useAuth();
   const liveUsers = useLiveUsers();
+  const [heroScroll, setHeroScroll] = useState(0);
+  const heroBgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => setHeroScroll(window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const recGenre = useMemo(() => {
     const genres = ["Action", "Fantasy", "Romance", "Sci-Fi", "Mystery", "Supernatural", "Comedy", "Thriller", "Isekai"];
@@ -142,34 +150,70 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background pb-20">
-      {/* Hero */}
-      <section className="relative w-full h-[80vh] min-h-[560px] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <img src={heroBg} alt="Hero" className="w-full h-full object-cover" decoding="async" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
+      {/* Hero — full-screen with parallax */}
+      <section className="relative w-full flex items-center justify-center overflow-hidden" style={{ height: "100svh", minHeight: 600 }}>
+        {/* Parallax background */}
+        <div
+          className="absolute inset-0 z-0 will-change-transform"
+          style={{ transform: `translateY(${heroScroll * 0.35}px)`, top: "-15%", bottom: "-15%", left: 0, right: 0 }}
+        >
+          <img
+            ref={heroBgRef}
+            src={heroBg}
+            alt="Hero"
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "center top" }}
+            decoding="async"
+            fetchPriority="high"
+          />
         </div>
-        <div className="container mx-auto px-4 z-10 text-center flex flex-col items-center mt-16">
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black font-heading text-white tracking-tight mb-4 text-shadow-neon">
+
+        {/* Layered gradient overlays */}
+        <div className="absolute inset-0 z-[1]" style={{
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0.65) 65%, rgba(0,0,0,0.97) 100%)"
+        }} />
+        {/* Subtle side vignette so edges feel cinematic */}
+        <div className="absolute inset-0 z-[2]" style={{
+          background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.45) 100%)"
+        }} />
+
+        {/* Hero content */}
+        <div className="container mx-auto px-4 z-10 text-center flex flex-col items-center gap-0">
+          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black font-heading text-white tracking-tight mb-4 text-shadow-neon leading-none">
             ZAIX <span className="text-primary">ANIME</span>
           </h1>
-          <p className="text-xl md:text-2xl text-foreground/90 font-medium mb-8 max-w-2xl text-shadow-neon">
+          <p className="text-lg sm:text-xl md:text-2xl text-foreground/85 font-medium mb-8 max-w-xl text-shadow-neon">
             Stream Anime. Read Manga. Discover Manhwa.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center w-full max-w-md">
-            <Button size="lg" className="w-full sm:w-auto bg-primary text-black hover:bg-primary/90 shadow-neon font-bold text-lg h-14 px-8" onClick={() => setActiveTab("anime")}>
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-center w-full max-w-sm sm:max-w-md">
+            <Button
+              size="lg"
+              className="w-full sm:w-auto bg-primary text-black hover:bg-primary/90 shadow-neon font-bold text-base h-13 px-8"
+              onClick={() => setActiveTab("anime")}
+            >
               Browse Anime
             </Button>
-            <Button size="lg" variant="outline" className="w-full sm:w-auto border-primary/50 text-white hover:bg-primary/10 hover:text-primary backdrop-blur-sm h-14 px-8" onClick={() => setActiveTab("manga")}>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full sm:w-auto border-primary/50 text-white hover:bg-primary/10 hover:text-primary backdrop-blur-sm h-13 px-8"
+              onClick={() => setActiveTab("manga")}
+            >
               Read Manga
             </Button>
           </div>
-          <div className="mt-6 flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-primary/25 bg-black/40 backdrop-blur-md shadow-neon">
+          <div className="mt-6 flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-primary/25 bg-black/50 backdrop-blur-md shadow-neon">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: "0 0 6px #39ff14" }} />
             <Users className="w-3.5 h-3.5 text-primary" />
             <span className="text-sm font-bold text-white">{liveUsers.toLocaleString()}</span>
             <span className="text-xs text-muted-foreground font-medium">watching right now</span>
           </div>
         </div>
+
+        {/* Bottom fade into page background */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 z-[3]" style={{
+          background: "linear-gradient(to bottom, transparent, hsl(var(--background)))"
+        }} />
       </section>
 
       {/* Continue Watching */}
