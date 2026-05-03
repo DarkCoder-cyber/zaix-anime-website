@@ -27,8 +27,14 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
 ## Workflows
-- **Zaix Anime** — Vite dev server on port 3000, `PORT=3000 BASE_PATH=/ pnpm --filter @workspace/zaix-anime run dev`
-- **API Server** — Express API on port 8080, `PORT=8080 pnpm --filter @workspace/api-server run dev`
+- **Start application** (webview, port 5000) — `PORT=5000 BASE_PATH=/ pnpm --filter @workspace/zaix-anime run dev`
+- **Backend API** (console, port 8080) — `PORT=8080 pnpm --filter @workspace/api-server run dev`
+
+## Important Notes on Server Setup
+- Express `app.listen` must use `"0.0.0.0"` as host to bind IPv4 (Replit port detection is IPv4 only)
+- `vite.config.ts` defaults: `PORT ?? "5000"`, `BASE_PATH ?? "/"` — no throw if env vars missing
+- DB push: `cd lib/db && pnpm run push-force`
+- Admin usernames accepted: `zaix` and `adminzaik` (password: `darkdevil_300`)
 
 ## Artifacts
 
