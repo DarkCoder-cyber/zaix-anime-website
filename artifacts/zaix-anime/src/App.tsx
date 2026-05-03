@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Link } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
@@ -11,6 +11,10 @@ import ReadPage from "@/pages/read";
 import SchedulePage from "@/pages/schedule";
 import WatchPartyPage from "@/pages/watch-party";
 import AdminPage from "@/pages/admin";
+import ProfilePage from "@/pages/profile";
+import TosPage from "@/pages/tos";
+import DmcaPage from "@/pages/dmca";
+import ContactPage from "@/pages/contact";
 import { Navbar } from "@/components/navbar";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
@@ -28,14 +32,11 @@ function MaintenanceScreen() {
         style={{ background: "radial-gradient(circle, rgba(57,255,20,0.15) 0%, transparent 70%)", border: "2px solid rgba(57,255,20,0.4)", boxShadow: "0 0 40px rgba(57,255,20,0.3)" }}>
         <span className="text-5xl">⚡</span>
       </div>
-      <h1 className="text-4xl sm:text-6xl font-black font-heading text-white tracking-tight mb-3"
-        style={{ textShadow: "0 0 30px rgba(57,255,20,0.5)" }}>
+      <h1 className="text-4xl sm:text-6xl font-black font-heading text-white tracking-tight mb-3" style={{ textShadow: "0 0 30px rgba(57,255,20,0.5)" }}>
         ZAIX <span style={{ color: "#39ff14" }}>ANIME</span>
       </h1>
       <p className="text-xl sm:text-2xl font-bold text-white/80 mb-3">Coming Back Soon</p>
-      <p className="text-muted-foreground max-w-md mb-8 leading-relaxed">
-        We're upgrading the platform. Hang tight — something awesome is on the way.
-      </p>
+      <p className="text-muted-foreground max-w-md mb-8 leading-relaxed">We're upgrading the platform. Hang tight — something awesome is on the way.</p>
       <div className="flex items-center gap-3 px-6 py-3 rounded-full border" style={{ borderColor: "rgba(57,255,20,0.3)", background: "rgba(57,255,20,0.05)" }}>
         <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#39ff14", boxShadow: "0 0 8px #39ff14" }} />
         <span className="text-sm font-semibold" style={{ color: "#39ff14" }}>Maintenance in progress</span>
@@ -54,10 +55,82 @@ function Router() {
       <Route path="/schedule" component={SchedulePage} />
       <Route path="/watch-party" component={WatchPartyPage} />
       <Route path="/xadmin" component={AdminPage} />
+      <Route path="/profile/:username" component={ProfilePage} />
+      <Route path="/tos" component={TosPage} />
+      <Route path="/dmca" component={DmcaPage} />
+      <Route path="/contact" component={ContactPage} />
       <Route path="/categories" component={Home} />
       <Route path="/trending" component={Home} />
       <Route component={NotFound} />
     </Switch>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-primary/20 bg-black mt-auto">
+      <div className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+          {/* Brand */}
+          <div className="flex flex-col gap-4 sm:col-span-2 lg:col-span-1">
+            <div>
+              <p className="font-heading text-2xl font-black text-white">ZAIX <span className="text-primary" style={{ textShadow: "0 0 12px #39ff14" }}>ANIME</span></p>
+              <p className="text-xs text-muted-foreground mt-1">Stream. Binge. Discover.</p>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
+              Your ultimate destination for anime, manga & manhwa. Community-driven, always free.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: "0 0 6px #39ff14" }} />
+              <span className="text-xs text-muted-foreground">1,200+ fans watching right now</span>
+            </div>
+          </div>
+
+          {/* Browse */}
+          <div className="flex flex-col gap-3">
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider">Browse</h4>
+            <div className="flex flex-col gap-2">
+              {[["🎌 Anime", "/"], ["📚 Manga", "/"], ["🇰🇷 Manhwa", "/"], ["🐉 Donghua", "/"], ["📅 Schedule", "/schedule"]].map(([label, href]) => (
+                <Link key={label as string} href={href as string} className="text-sm text-muted-foreground hover:text-primary transition-colors">{label}</Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Community */}
+          <div className="flex flex-col gap-3">
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider">Community</h4>
+            <div className="flex flex-col gap-2">
+              {[["🎉 Watch Party", "/watch-party"], ["💬 Reviews", "/"], ["👥 Profiles", "/"], ["🏆 Trending", "/trending"]].map(([label, href]) => (
+                <Link key={label as string} href={href as string} className="text-sm text-muted-foreground hover:text-primary transition-colors">{label}</Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Legal */}
+          <div className="flex flex-col gap-3">
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider">Legal & Support</h4>
+            <div className="flex flex-col gap-2">
+              {[["📜 Terms of Service", "/tos"], ["⚠️ DMCA Policy", "/dmca"], ["✉️ Contact Us", "/contact"]].map(([label, href]) => (
+                <Link key={label as string} href={href as string} className="text-sm text-muted-foreground hover:text-primary transition-colors">{label}</Link>
+              ))}
+              <a href="mailto:support@zaix.anime" className="text-sm text-muted-foreground hover:text-primary transition-colors">📧 support@zaix.anime</a>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-primary/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+          <p>© {new Date().getFullYear()} Zaix Anime. All rights reserved.</p>
+          <p className="text-center">Anime data by <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer" className="text-primary/70 hover:text-primary">Jikan/MAL</a> • Manga by <a href="https://mangadex.org" target="_blank" rel="noopener noreferrer" className="text-primary/70 hover:text-primary">MangaDex</a></p>
+          <div className="flex items-center gap-3">
+            <Link href="/tos" className="hover:text-primary transition-colors">Terms</Link>
+            <span className="text-border">•</span>
+            <Link href="/dmca" className="hover:text-primary transition-colors">DMCA</Link>
+            <span className="text-border">•</span>
+            <Link href="/contact" className="hover:text-primary transition-colors">Contact</Link>
+          </div>
+        </div>
+      </div>
+    </footer>
   );
 }
 
@@ -85,13 +158,7 @@ function AppShell() {
         <Router />
         <GlobalUI />
         <AuthModal />
-        <footer className="border-t border-primary/20 bg-black py-8 mt-auto">
-          <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-            <p className="font-heading text-lg font-bold text-white mb-2">ZAIX <span className="text-primary text-shadow-neon">ANIME</span></p>
-            <p className="mb-1">© {new Date().getFullYear()} Zaix Anime. Stream. Binge. Discover.</p>
-            <p className="text-xs opacity-60">Anime data by Jikan/MAL • Manga/Manhwa data by MangaDex</p>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </WouterRouter>
   );

@@ -7,6 +7,11 @@ import reviewsRouter from "./reviews";
 import chatRouter from "./chat";
 import reportsRouter from "./reports";
 import adminRouter from "./admin";
+import watchlistRouter from "./watchlist";
+import progressRouter from "./progress";
+import recommendationsRouter from "./recommendations";
+import profilesRouter from "./profiles";
+import repliesRouter from "./replies";
 
 const router: IRouter = Router();
 
@@ -14,9 +19,14 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(animeRouter);
 router.use(mangaRouter);
+router.use(repliesRouter);
 router.use(reviewsRouter);
 router.use(chatRouter);
 router.use(reportsRouter);
 router.use(adminRouter);
+router.use(watchlistRouter);
+router.use(progressRouter);
+router.use(recommendationsRouter);
+router.use(profilesRouter);
 
 export default router;

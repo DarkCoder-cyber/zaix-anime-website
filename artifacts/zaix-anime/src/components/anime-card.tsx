@@ -1,10 +1,9 @@
 import { Link } from "wouter";
 import { useEffect, useRef, useState } from "react";
-import { Star, PlayCircle, Plus, Check, Flame } from "lucide-react";
+import { Star, PlayCircle, Flame } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { useLibrary } from "@/hooks/use-local-store";
-import { toast } from "sonner";
+import { WatchlistButton } from "@/components/watchlist-button";
 
 export interface Anime {
   malId: number;
@@ -33,15 +32,9 @@ function useInView<T extends Element>() {
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
-    if (!("IntersectionObserver" in window)) {
-      setVisible(true);
-      return;
-    }
+    if (!("IntersectionObserver" in window)) { setVisible(true); return; }
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setVisible(true);
-        observer.disconnect();
-      }
+      if (entry.isIntersecting) { setVisible(true); observer.disconnect(); }
     }, { rootMargin: "250px" });
     observer.observe(node);
     return () => observer.disconnect();
@@ -51,23 +44,8 @@ function useInView<T extends Element>() {
 }
 
 export function AnimeCard({ anime, layout = "trending" }: AnimeCardProps) {
-  const { addToLibrary, removeFromLibrary, isInLibrary } = useLibrary();
-  const id = String(anime.malId);
-  const saved = isInLibrary(id);
   const isHot = (anime.score ?? 0) >= 8.5;
   const { ref, visible } = useInView<HTMLImageElement>();
-
-  function handleLibrary(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (saved) {
-      removeFromLibrary(id);
-      toast.success("Removed from library", { description: anime.title, duration: 2000 });
-    } else {
-      addToLibrary({ id, type: "anime", title: anime.title, image: anime.image });
-      toast.success("Saved to library! 🎌", { description: anime.title, duration: 2500 });
-    }
-  }
 
   return (
     <Link href={`/watch/${anime.malId}`} className="group block h-full focus:outline-none" data-testid={`card-anime-${anime.malId}`}>
@@ -87,10 +65,21 @@ export function AnimeCard({ anime, layout = "trending" }: AnimeCardProps) {
             {isHot && <span className="badge-hot flex items-center gap-0.5 text-[10px] font-extrabold px-1.5 py-0.5 rounded"><Flame className="w-3 h-3" /> HOT</span>}
           </div>
           <div className="absolute top-2 left-2 flex flex-col gap-1.5 items-start">
-            <button onClick={handleLibrary} className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg z-10 ${saved ? "bg-primary text-black shadow-neon" : "bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-black"}`} title={saved ? "Remove from library" : "Save to library"}>
-              {saved ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            </button>
-            {layout === "trending" && <>{anime.episodes ? <Badge variant="outline" className="bg-black/60 border-white/20 backdrop-blur-sm text-xs">EP {anime.episodes}</Badge> : null}{anime.type ? <Badge variant="outline" className="bg-black/60 border-primary/50 backdrop-blur-sm text-[10px] text-primary uppercase">{anime.type}</Badge> : null}</>}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <WatchlistButton
+                contentType="anime"
+                contentId={String(anime.malId)}
+                contentTitle={anime.title}
+                contentImage={anime.image}
+                contentGenres={anime.genres.join(",")}
+              />
+            </div>
+            {layout === "trending" && (
+              <>
+                {anime.episodes ? <Badge variant="outline" className="bg-black/60 border-white/20 backdrop-blur-sm text-xs">EP {anime.episodes}</Badge> : null}
+                {anime.type ? <Badge variant="outline" className="bg-black/60 border-primary/50 backdrop-blur-sm text-[10px] text-primary uppercase">{anime.type}</Badge> : null}
+              </>
+            )}
           </div>
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center backdrop-blur-md transform-gpu" style={{ transform: "translateZ(0)" }}>

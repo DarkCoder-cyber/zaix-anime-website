@@ -4,9 +4,11 @@ import {
   Share2, Heart, MessageSquare, Star, Send, Play, Tv,
   AlertCircle, RefreshCw, Film, PictureInPicture2, WandSparkles,
   Download, Check, X, Server, ChevronDown, Layers, SkipForward,
+  AlertTriangle, Zap,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ReviewSection } from "@/components/review-section";
+import { WatchlistButton } from "@/components/watchlist-button";
 import { useRecentlyVisited } from "@/hooks/use-local-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { AdminCrown } from "@/components/admin-badge";
 import { useAdmin } from "@/hooks/use-admin";
+import { useAuth } from "@/hooks/use-auth";
 import {
   useGetAnimeById,
   useGetAnimeEpisodes,
@@ -28,11 +31,7 @@ interface StreamData {
 }
 
 interface SeasonEntry {
-  malId: number;
-  title: string;
-  image: string | null;
-  relation: string;
-  isCurrent: boolean;
+  malId: number; title: string; image: string | null; relation: string; isCurrent: boolean;
 }
 
 type LangFilter = "sub" | "dub" | "hindi" | "raw";
@@ -51,17 +50,17 @@ const EXTRA_SERVERS = [
   { name: "zoro", label: "Zoro" },
 ];
 
+const FAILOVER_DELAY = 15;
+
 function DownloadModal({ anime, episode, onClose }: { anime: any; episode: number; onClose: () => void }) {
   const [quality, setQuality] = useState<"1080p" | "720p" | "480p">("1080p");
   const [format, setFormat] = useState<"mp4" | "mkv">("mp4");
   const [downloading, setDownloading] = useState(false);
   const [done, setDone] = useState(false);
-
   const startDownload = () => {
     setDownloading(true);
     setTimeout(() => { setDownloading(false); setDone(true); toast.success("Download queued!", { description: `${anime?.title} EP ${episode} — ${quality} ${format.toUpperCase()}` }); }, 1500);
   };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-sm bg-black border border-primary/30 rounded-2xl shadow-neon-intense p-6 flex flex-col gap-5" onClick={e => e.stopPropagation()}>
@@ -94,11 +93,7 @@ function DownloadModal({ anime, episode, onClose }: { anime: any; episode: numbe
           <p className="text-primary font-semibold mb-1">High-Speed Download</p>
           <p>Multi-threaded • Resumable • {quality === "1080p" ? "~800MB" : quality === "720p" ? "~400MB" : "~200MB"} est.</p>
         </div>
-        <Button
-          className={`w-full font-bold shadow-neon transition-all ${done ? "bg-green-600 hover:bg-green-600" : "bg-primary text-black hover:bg-primary/90"}`}
-          onClick={done ? onClose : startDownload}
-          disabled={downloading}
-        >
+        <Button className={`w-full font-bold shadow-neon transition-all ${done ? "bg-green-600 hover:bg-green-600" : "bg-primary text-black hover:bg-primary/90"}`} onClick={done ? onClose : startDownload} disabled={downloading}>
           {downloading ? (<><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" /> Queuing...</>) : done ? (<><Check className="w-4 h-4 mr-2" /> Added to Queue!</>) : (<><Download className="w-4 h-4 mr-2" /> Download {quality}</>)}
         </Button>
       </div>
@@ -111,24 +106,13 @@ function SeasonTabs({ malId, seasons, onSelect }: { malId: number; seasons: Seas
   return (
     <div className="flex items-center gap-3 mb-5">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 font-semibold uppercase tracking-wider">
-        <Layers className="w-3.5 h-3.5 text-primary" />
-        <span>Seasons</span>
+        <Layers className="w-3.5 h-3.5 text-primary" /><span>Seasons</span>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1 flex-1 hide-scrollbar" style={{ scrollbarWidth: "none" }}>
         {seasons.map((s, i) => (
-          <button
-            key={s.malId}
-            onClick={() => onSelect(s.malId)}
-            title={s.title}
-            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
-              s.malId === malId
-                ? "bg-primary text-black border-primary shadow-neon"
-                : "bg-card border-primary/20 text-muted-foreground hover:border-primary/60 hover:text-primary"
-            }`}
-          >
-            {s.relation === "Sequel" || s.relation === "Prequel" || s.relation === "Side story" || s.relation === "Spin-off"
-              ? `${s.relation} ${i + 1}`
-              : `Season ${i + 1}`}
+          <button key={s.malId} onClick={() => onSelect(s.malId)} title={s.title}
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${s.malId === malId ? "bg-primary text-black border-primary shadow-neon" : "bg-card border-primary/20 text-muted-foreground hover:border-primary/60 hover:text-primary"}`}>
+            {s.relation === "Sequel" || s.relation === "Prequel" || s.relation === "Side story" || s.relation === "Spin-off" ? `${s.relation} ${i + 1}` : `Season ${i + 1}`}
           </button>
         ))}
       </div>
@@ -136,11 +120,105 @@ function SeasonTabs({ malId, seasons, onSelect }: { malId: number; seasons: Seas
   );
 }
 
+function EpisodeListHeader({ episodes }: { episodes: any[] }) {
+  return (
+    <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex justify-between items-center">
+      <span>Episodes</span>
+      <Badge variant="secondary" className="bg-primary/10 text-primary">{episodes.length}</Badge>
+    </h3>
+  );
+}
+
+interface EpisodeListProps { episodes: any[]; loading: boolean; selectedEp: number; onSelect: (n: number) => void; maxHeight: string; }
+function EpisodeList({ episodes, loading, selectedEp, onSelect, maxHeight }: EpisodeListProps) {
+  if (loading) return <div className="space-y-3">{[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>;
+  if (!episodes.length) return <p className="text-muted-foreground text-sm text-center py-4">No episodes found.</p>;
+  return (
+    <div className="overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2" style={{ maxHeight }}>
+      {episodes.map((ep) => (
+        <button key={ep.number} data-testid={`ep-btn-${ep.number}`} onClick={() => onSelect(ep.number)}
+          className={`flex gap-3 items-center text-left p-2.5 rounded-lg transition-all border w-full ${selectedEp === ep.number ? "bg-primary/10 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] text-primary" : "bg-secondary/30 border-transparent hover:bg-secondary hover:border-primary/30 text-foreground"}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold font-mono text-xs ${selectedEp === ep.number ? "bg-primary text-black" : "bg-black/50 text-muted-foreground"}`}>{ep.number}</div>
+          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+            <h4 className="text-sm font-medium line-clamp-1" title={ep.title || `Episode ${ep.number}`}>{ep.title || `Episode ${ep.number}`}</h4>
+            {ep.aired && <p className="text-xs opacity-60 line-clamp-1">{new Date(ep.aired).toLocaleDateString()}</p>}
+          </div>
+          {ep.filler && <Badge variant="outline" className="text-[9px] border-yellow-500/50 text-yellow-500 bg-yellow-500/10 px-1 py-0 shrink-0">FILLER</Badge>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+interface ChatMessage { id: number; user: string; text: string; color: string; isAdmin?: boolean; }
+function LiveChat({ chatMsg, setChatMsg, isAdmin }: { chatMsg: string; setChatMsg: (v: string) => void; isAdmin: boolean }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { id: 1, user: "AnimeFan99", text: "THIS ANIMATION IS INSANE 🔥", color: "text-primary" },
+    { id: 2, user: "KiraKun", text: "Best episode so far imo", color: "text-blue-400" },
+    { id: 3, user: "SakuraChan", text: "I can't wait for the next arc!!", color: "text-pink-400" },
+    { id: 4, user: "WeebMaster", text: "the OP song goes incredibly hard", color: "text-yellow-400" },
+    { id: 5, user: "NarutoBro", text: "best anime ever made no debate", color: "text-green-400" },
+  ]);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  function send() {
+    if (!chatMsg.trim()) return;
+    setMessages((m) => [...m, { id: Date.now(), user: isAdmin ? "zaix" : "You", text: chatMsg.trim(), color: isAdmin ? "text-yellow-400" : "text-primary", isAdmin }]);
+    setChatMsg("");
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
+
+  return (
+    <>
+      <div className="h-[240px] sm:h-[280px] flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-2 mb-4 text-sm">
+        {messages.map((m) => (
+          <div key={m.id} className="rounded-lg px-2.5 py-1.5"
+            style={m.isAdmin ? { background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.35)", boxShadow: "0 0 8px rgba(255,215,0,0.12)" } : {}}>
+            <span className={`font-bold ${m.color} flex items-center gap-1.5 inline-flex`}>
+              {m.isAdmin && <AdminCrown size="xs" />}{m.user}:
+            </span>{" "}
+            <span className={m.isAdmin ? "font-medium text-yellow-50" : "font-normal text-white"}>{m.text}</span>
+          </div>
+        ))}
+        <div ref={endRef} />
+      </div>
+      <div className="relative">
+        <input type="text" value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
+          placeholder={isAdmin ? "Send as zaix (admin)..." : "Say something..."}
+          className="w-full bg-secondary border rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none text-white transition-colors"
+          style={isAdmin ? { borderColor: "rgba(255,215,0,0.4)", boxShadow: "0 0 6px rgba(255,215,0,0.1)" } : { borderColor: "" }} />
+        <button onClick={send} className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-1.5 hover:bg-primary/10 rounded-full transition-colors"><Send className="w-4 h-4" /></button>
+      </div>
+    </>
+  );
+}
+
+function saveProgressToDb(contentId: string, episode: number) {
+  const token = localStorage.getItem("zaix_token");
+  if (!token) return;
+  fetch("/api/progress", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ contentType: "anime", contentId, episode, progressSeconds: 0, totalSeconds: 0 }),
+  }).catch(() => { });
+}
+
+function saveToWatchlistDb(contentId: string, contentTitle: string, contentImage: string | null, contentGenres: string) {
+  const token = localStorage.getItem("zaix_token");
+  if (!token) return;
+  fetch("/api/watchlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ contentType: "anime", contentId, contentTitle, contentImage, contentGenres, status: "watching" }),
+  }).catch(() => { });
+}
+
 export default function WatchPage() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const malId = parseInt(id || "0");
   const { authenticated: isAdmin } = useAdmin();
+  const { user } = useAuth();
   const [selectedEp, setSelectedEp] = useState<number>(1);
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [streamLoading, setStreamLoading] = useState(false);
@@ -157,9 +235,15 @@ export default function WatchPage() {
     try { return JSON.parse(localStorage.getItem("zaix_autoplay") ?? "false"); } catch { return false; }
   });
   const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
+  const [failoverCountdown, setFailoverCountdown] = useState<number | null>(null);
   const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const failoverTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const failoverCancelledRef = useRef(false);
+  const activeProviderRef = useRef(activeProvider);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { addRecent } = useRecentlyVisited();
+
+  useEffect(() => { activeProviderRef.current = activeProvider; }, [activeProvider]);
 
   const { data: anime, isLoading: animeLoading } = useGetAnimeById(malId, {
     query: { enabled: malId > 0, queryKey: getGetAnimeByIdQueryKey(malId) },
@@ -196,7 +280,7 @@ export default function WatchPage() {
         const data = await res.json();
         const yt = data?.data?.[0]?.trailerUrl || data?.data?.[0]?.trailer?.url || data?.data?.[0]?.trailer?.embedUrl || null;
         if (yt) setTrailerUrl(yt);
-      } catch {}
+      } catch { }
     }, 400);
     return () => clearTimeout(t);
   }, [anime]);
@@ -206,7 +290,55 @@ export default function WatchPage() {
     setAutoPlayCountdown(null);
   }, []);
 
-  const startAutoPlayCountdown = useCallback((nextEp: number) => {
+  const clearFailoverTimer = useCallback(() => {
+    if (failoverTimerRef.current) { clearInterval(failoverTimerRef.current); failoverTimerRef.current = null; }
+    setFailoverCountdown(null);
+    failoverCancelledRef.current = false;
+  }, []);
+
+  const startFailoverTimer = useCallback((providers: StreamProvider[]) => {
+    clearFailoverTimer();
+    if (providers.length <= 1) return;
+    failoverCancelledRef.current = false;
+    let count = FAILOVER_DELAY;
+    setFailoverCountdown(count);
+    failoverTimerRef.current = setInterval(() => {
+      count--;
+      setFailoverCountdown(count);
+      if (count <= 0) {
+        clearInterval(failoverTimerRef.current!);
+        failoverTimerRef.current = null;
+        setFailoverCountdown(null);
+        if (!failoverCancelledRef.current) {
+          const currentIdx = providers.findIndex(p => p.name === activeProviderRef.current);
+          const nextIdx = (currentIdx + 1) % providers.length;
+          const nextProv = providers[nextIdx];
+          setActiveProvider(nextProv.name);
+          toast.info(`Switched to ${nextProv.label}`, {
+            description: "Auto-switched to backup server",
+            icon: <Zap className="w-4 h-4 text-primary" />,
+          });
+        }
+      }
+    }, 1000);
+  }, [clearFailoverTimer]);
+
+  const cancelFailover = useCallback(() => {
+    failoverCancelledRef.current = true;
+    clearFailoverTimer();
+    toast.success("Auto-switch cancelled");
+  }, [clearFailoverTimer]);
+
+  const switchNow = useCallback((providers: StreamProvider[]) => {
+    clearFailoverTimer();
+    const currentIdx = providers.findIndex(p => p.name === activeProviderRef.current);
+    const nextIdx = (currentIdx + 1) % providers.length;
+    const nextProv = providers[nextIdx];
+    setActiveProvider(nextProv.name);
+    toast.success(`Switched to ${nextProv.label}`, { icon: <Zap className="w-4 h-4 text-primary" /> });
+  }, [clearFailoverTimer]);
+
+  const startAutoPlayCountdown = useCallback((nextEp: number, fetchStreamFn: (ep: number) => void) => {
     clearAutoPlayTimer();
     setAutoPlayCountdown(15);
     autoPlayTimerRef.current = setInterval(() => {
@@ -216,7 +348,7 @@ export default function WatchPage() {
           autoPlayTimerRef.current = null;
           setAutoPlayCountdown(null);
           setSelectedEp(nextEp);
-          fetchStream(nextEp);
+          fetchStreamFn(nextEp);
           return null;
         }
         return prev - 1;
@@ -224,12 +356,13 @@ export default function WatchPage() {
     }, 1000);
   }, [clearAutoPlayTimer]);
 
-  useEffect(() => { return () => clearAutoPlayTimer(); }, [clearAutoPlayTimer]);
+  useEffect(() => { return () => { clearAutoPlayTimer(); clearFailoverTimer(); }; }, [clearAutoPlayTimer, clearFailoverTimer]);
 
   const fetchStream = useCallback(async (epNumber: number) => {
     setStreamLoading(true);
     setStreamError(null);
     clearAutoPlayTimer();
+    clearFailoverTimer();
     try {
       const res = await fetch(`/api/anime/stream?malId=${malId}&episode=${epNumber}&season=1`);
       if (!res.ok) {
@@ -238,23 +371,43 @@ export default function WatchPage() {
       }
       const data: StreamData = await res.json();
       setStreamData(data);
-      if (data.providers?.length > 0) setActiveProvider(data.providers[0].name);
-      // Start autoplay countdown for next episode
+      if (data.providers?.length > 0) {
+        setActiveProvider(data.providers[0].name);
+        startFailoverTimer(data.providers);
+      }
       if (autoPlay) {
         const nextEpNumber = epNumber + 1;
         const hasNext = episodes.some(e => e.number === nextEpNumber);
-        if (hasNext) startAutoPlayCountdown(nextEpNumber);
+        if (hasNext) startAutoPlayCountdown(nextEpNumber, fetchStream);
       }
     } catch (err: any) {
       setStreamError(err.message || "Could not load video stream");
     } finally {
       setStreamLoading(false);
     }
-  }, [malId, autoPlay, episodes, clearAutoPlayTimer, startAutoPlayCountdown]);
+  }, [malId, autoPlay, episodes, clearAutoPlayTimer, clearFailoverTimer, startAutoPlayCountdown, startFailoverTimer]);
 
   const handleEpisodeClick = (epNumber: number) => {
     setSelectedEp(epNumber);
     fetchStream(epNumber);
+    // Save progress to DB
+    saveProgressToDb(String(malId), epNumber);
+    // Save to watchlist as "watching"
+    if (user && anime) {
+      saveToWatchlistDb(
+        String(malId),
+        anime.title,
+        anime.image ?? null,
+        (anime.genres as string[]).join(",")
+      );
+    }
+  };
+
+  const handleProviderClick = (providerName: string) => {
+    setActiveProvider(providerName);
+    setActiveServer(providerName);
+    clearFailoverTimer();
+    if (streamData?.providers) startFailoverTimer(streamData.providers);
   };
 
   const handleSeasonSelect = (seasonMalId: number) => {
@@ -264,7 +417,7 @@ export default function WatchPage() {
   const toggleAutoPlay = () => {
     const next = !autoPlay;
     setAutoPlay(next);
-    try { localStorage.setItem("zaix_autoplay", JSON.stringify(next)); } catch {}
+    try { localStorage.setItem("zaix_autoplay", JSON.stringify(next)); } catch { }
     if (!next) clearAutoPlayTimer();
     toast.success(next ? "Auto-Play enabled" : "Auto-Play disabled");
   };
@@ -276,14 +429,14 @@ export default function WatchPage() {
   const hasNextEp = episodes.some(e => e.number === nextEpNumber);
 
   const share = async () => {
-    try { await navigator.clipboard.writeText(directLink); toast.success("Link copied!", { duration: 1500 }); } catch {}
+    try { await navigator.clipboard.writeText(directLink); toast.success("Link copied!", { duration: 1500 }); } catch { }
   };
 
   const startPip = async () => {
     try {
       const el = iframeRef.current as any;
       if (el?.requestPictureInPicture) { await el.requestPictureInPicture(); setPipMode(true); }
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -292,12 +445,9 @@ export default function WatchPage() {
 
       <div className="min-h-screen bg-background pt-16 pb-20">
         <div className="container mx-auto px-4 max-w-7xl mt-6">
-
-          {/* Season Tabs */}
           <SeasonTabs malId={malId} seasons={seasons} onSelect={handleSeasonSelect} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
             {/* Left: player + info */}
             <div className="lg:col-span-2 flex flex-col gap-5">
 
@@ -320,7 +470,9 @@ export default function WatchPage() {
                   </div>
                 )}
                 {!streamLoading && !streamError && currentEmbedUrl && (
-                  <iframe ref={iframeRef} key={currentEmbedUrl} src={currentEmbedUrl} className="w-full h-full" allowFullScreen allow="autoplay; fullscreen; picture-in-picture" referrerPolicy="no-referrer-when-downgrade" title={`${anime?.title || "Anime"} Episode ${selectedEp}`} />
+                  <iframe ref={iframeRef} key={currentEmbedUrl} src={currentEmbedUrl} className="w-full h-full"
+                    allowFullScreen allow="autoplay; fullscreen; picture-in-picture" referrerPolicy="no-referrer-when-downgrade"
+                    title={`${anime?.title || "Anime"} Episode ${selectedEp}`} />
                 )}
                 {!streamLoading && !streamError && !currentEmbedUrl && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -340,7 +492,7 @@ export default function WatchPage() {
                   </div>
                 )}
 
-                {/* Auto-play countdown overlay */}
+                {/* Auto-play countdown */}
                 {autoPlayCountdown !== null && hasNextEp && !streamLoading && (
                   <div className="absolute bottom-4 right-4 z-20 flex items-center gap-3 bg-black/80 backdrop-blur-md border border-primary/30 rounded-xl px-4 py-3 shadow-neon">
                     <div className="flex flex-col">
@@ -348,10 +500,8 @@ export default function WatchPage() {
                       <span className="text-primary font-black text-2xl leading-tight">{autoPlayCountdown}s</span>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <button
-                        onClick={() => { clearAutoPlayTimer(); fetchStream(nextEpNumber); setSelectedEp(nextEpNumber); }}
-                        className="px-3 py-1 rounded-lg bg-primary text-black text-xs font-bold hover:bg-primary/90 flex items-center gap-1"
-                      >
+                      <button onClick={() => { clearAutoPlayTimer(); fetchStream(nextEpNumber); setSelectedEp(nextEpNumber); }}
+                        className="px-3 py-1 rounded-lg bg-primary text-black text-xs font-bold hover:bg-primary/90 flex items-center gap-1">
                         <SkipForward className="w-3 h-3" /> Play Now
                       </button>
                       <button onClick={clearAutoPlayTimer} className="px-3 py-1 rounded-lg bg-secondary text-muted-foreground text-xs font-semibold hover:text-white">
@@ -360,9 +510,29 @@ export default function WatchPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Auto-failover overlay */}
+                {failoverCountdown !== null && currentEmbedUrl && !streamLoading && streamData && streamData.providers.length > 1 && (
+                  <div className="absolute bottom-4 left-4 z-20 flex items-center gap-3 bg-black/85 backdrop-blur-md border border-yellow-500/40 rounded-xl px-4 py-3 shadow-[0_0_20px_rgba(255,200,0,0.15)]">
+                    <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="text-white text-xs font-semibold">Stream not loading?</span>
+                      <span className="text-yellow-400 font-black text-base leading-tight">Backup in {failoverCountdown}s</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5 ml-1">
+                      <button onClick={() => switchNow(streamData.providers)}
+                        className="px-3 py-1 rounded-lg bg-yellow-500/20 text-yellow-300 text-xs font-bold border border-yellow-500/30 hover:bg-yellow-500/30 flex items-center gap-1">
+                        <Zap className="w-3 h-3" /> Switch Now
+                      </button>
+                      <button onClick={cancelFailover} className="px-3 py-1 rounded-lg bg-secondary text-muted-foreground text-xs hover:text-white">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Multi-Server Switcher + Language filter + Auto-Play */}
+              {/* Server Switcher */}
               <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
                   <div className="flex items-center gap-2">
@@ -370,50 +540,27 @@ export default function WatchPage() {
                     <span className="text-sm font-semibold text-white">Streaming Servers</span>
                     <span className="text-xs text-muted-foreground ml-1">— switch if one doesn't load</span>
                   </div>
-                  {/* Auto-Play Toggle */}
                   <div className="flex items-center gap-2.5">
                     <span className="text-xs font-semibold text-muted-foreground">Auto-Play</span>
-                    <button
-                      onClick={toggleAutoPlay}
-                      role="switch"
-                      aria-checked={autoPlay}
+                    <button onClick={toggleAutoPlay} role="switch" aria-checked={autoPlay}
                       className="relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none"
-                      style={{ background: autoPlay ? "#39ff14" : "#333" }}
-                    >
-                      <span
-                        className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
-                        style={{ transform: autoPlay ? "translateX(22px)" : "translateX(3px)" }}
-                      />
+                      style={{ background: autoPlay ? "#39ff14" : "#333" }}>
+                      <span className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
+                        style={{ transform: autoPlay ? "translateX(22px)" : "translateX(3px)" }} />
                     </button>
-                    {autoPlay && hasNextEp && (
-                      <span className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/10 px-1.5 py-0.5 rounded-full">ON</span>
-                    )}
+                    {autoPlay && hasNextEp && <span className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/10 px-1.5 py-0.5 rounded-full">ON</span>}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {EXTRA_SERVERS.map((srv) => (
-                    <button
-                      key={srv.name}
-                      onClick={() => setActiveServer(srv.name)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
-                        activeServer === srv.name
-                          ? "bg-primary text-black border-primary shadow-neon"
-                          : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"
-                      }`}
-                    >
+                    <button key={srv.name} onClick={() => handleProviderClick(srv.name)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${activeServer === srv.name ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"}`}>
                       {srv.label}
                     </button>
                   ))}
                   {streamData?.providers?.filter(p => !EXTRA_SERVERS.find(s => s.name === p.name)).map((provider) => (
-                    <button
-                      key={provider.name}
-                      onClick={() => { setActiveProvider(provider.name); setActiveServer(provider.name); }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
-                        activeProvider === provider.name
-                          ? "bg-primary text-black border-primary shadow-neon"
-                          : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"
-                      }`}
-                    >
+                    <button key={provider.name} onClick={() => handleProviderClick(provider.name)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${activeProvider === provider.name ? "bg-primary text-black border-primary shadow-neon" : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/50 hover:text-primary"}`}>
                       {provider.label}
                     </button>
                   ))}
@@ -423,15 +570,8 @@ export default function WatchPage() {
                   <span className="text-xs text-muted-foreground">Language:</span>
                   <div className="flex flex-wrap gap-1.5">
                     {LANG_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.key}
-                        onClick={() => setLangFilter(opt.key)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                          langFilter === opt.key
-                            ? `bg-primary/10 ${opt.color} border-current shadow-neon`
-                            : "bg-transparent border-border text-muted-foreground hover:text-white hover:border-white/30"
-                        }`}
-                      >
+                      <button key={opt.key} onClick={() => setLangFilter(opt.key)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${langFilter === opt.key ? `bg-primary/10 ${opt.color} border-current shadow-neon` : "bg-transparent border-border text-muted-foreground hover:text-white hover:border-white/30"}`}>
                         {opt.label}
                       </button>
                     ))}
@@ -460,11 +600,9 @@ export default function WatchPage() {
                 )}
               </div>
 
-              {/* Anime info */}
-              <div
-                className="bg-card border border-border p-6 rounded-xl flex flex-col gap-4 relative overflow-hidden"
-                style={anime?.image ? { boxShadow: "0 0 40px rgba(57,255,20,.08)" } : undefined}
-              >
+              {/* Anime Info */}
+              <div className="bg-card border border-border p-6 rounded-xl flex flex-col gap-4 relative overflow-hidden"
+                style={anime?.image ? { boxShadow: "0 0 40px rgba(57,255,20,.08)" } : undefined}>
                 {anime?.image && (
                   <div className="absolute inset-0 z-0 opacity-5 pointer-events-none">
                     <img src={anime.image} alt="" className="w-full h-full object-cover blur-3xl scale-150" />
@@ -500,9 +638,18 @@ export default function WatchPage() {
                           <Badge variant="secondary" className="bg-secondary/50 text-foreground border-border text-sm px-3 py-1">
                             <Star className="w-4 h-4 mr-1.5 text-primary fill-primary" /> {anime.score?.toFixed(1) || "N/A"}
                           </Badge>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="icon" className="border-border hover:border-primary hover:text-primary bg-secondary/50"><Heart className="w-4 h-4" /></Button>
-                            <Button variant="outline" size="icon" className="border-border hover:border-primary hover:text-primary bg-secondary/50" onClick={share}><Share2 className="w-4 h-4" /></Button>
+                          <div className="flex gap-2 items-center">
+                            <WatchlistButton
+                              contentType="anime"
+                              contentId={String(malId)}
+                              contentTitle={anime.title}
+                              contentImage={anime.image ?? null}
+                              contentGenres={(anime.genres as string[]).join(",")}
+                              size="md"
+                            />
+                            <Button variant="outline" size="icon" className="border-border hover:border-primary hover:text-primary bg-secondary/50" onClick={share}>
+                              <Share2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -548,7 +695,6 @@ export default function WatchPage() {
                 <EpisodeListHeader episodes={episodes} />
                 <EpisodeList episodes={episodes} loading={epsLoading} selectedEp={selectedEp} onSelect={handleEpisodeClick} maxHeight="500px" />
               </div>
-
               <div className="bg-card border border-border rounded-xl p-5 shadow-lg lg:sticky lg:top-24">
                 <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" /> Live Chat
@@ -560,91 +706,5 @@ export default function WatchPage() {
         </div>
       </div>
     </>
-  );
-}
-
-function EpisodeListHeader({ episodes }: { episodes: any[] }) {
-  return (
-    <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex justify-between items-center">
-      <span>Episodes</span>
-      <Badge variant="secondary" className="bg-primary/10 text-primary">{episodes.length}</Badge>
-    </h3>
-  );
-}
-
-interface ChatMessage { id: number; user: string; text: string; color: string; isAdmin?: boolean; }
-
-function LiveChat({ chatMsg, setChatMsg, isAdmin }: { chatMsg: string; setChatMsg: (v: string) => void; isAdmin: boolean }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 1, user: "AnimeFan99", text: "THIS ANIMATION IS INSANE 🔥", color: "text-primary" },
-    { id: 2, user: "KiraKun", text: "Best episode so far imo", color: "text-blue-400" },
-    { id: 3, user: "SakuraChan", text: "I can't wait for the next arc!!", color: "text-pink-400" },
-    { id: 4, user: "WeebMaster", text: "the OP song goes incredibly hard", color: "text-yellow-400" },
-    { id: 5, user: "NarutoBro", text: "best anime ever made no debate", color: "text-green-400" },
-  ]);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  function send() {
-    if (!chatMsg.trim()) return;
-    setMessages((m) => [...m, { id: Date.now(), user: isAdmin ? "zaix" : "You", text: chatMsg.trim(), color: isAdmin ? "text-yellow-400" : "text-primary", isAdmin }]);
-    setChatMsg("");
-    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  }
-
-  return (
-    <>
-      <div className="h-[240px] sm:h-[280px] flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-2 mb-4 text-sm">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className="rounded-lg px-2.5 py-1.5"
-            style={m.isAdmin ? {
-              background: "rgba(255,215,0,0.06)",
-              border: "1px solid rgba(255,215,0,0.35)",
-              boxShadow: "0 0 8px rgba(255,215,0,0.12)"
-            } : {}}
-          >
-            <span className={`font-bold ${m.color} flex items-center gap-1.5 inline-flex`}>
-              {m.isAdmin && <AdminCrown size="xs" />}
-              {m.user}:
-            </span>{" "}
-            <span className={m.isAdmin ? "font-medium text-yellow-50" : "font-normal text-white"}>{m.text}</span>
-          </div>
-        ))}
-        <div ref={endRef} />
-      </div>
-      <div className="relative">
-        <input
-          type="text"
-          value={chatMsg}
-          onChange={(e) => setChatMsg(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder={isAdmin ? "Send as zaix (admin)..." : "Say something..."}
-          className="w-full bg-secondary border rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none text-white transition-colors"
-          style={isAdmin ? { borderColor: "rgba(255,215,0,0.4)", boxShadow: "0 0 6px rgba(255,215,0,0.1)" } : { borderColor: "" }}
-        />
-        <button onClick={send} className="absolute right-1 top-1/2 -translate-y-1/2 text-primary p-1.5 hover:bg-primary/10 rounded-full transition-colors"><Send className="w-4 h-4" /></button>
-      </div>
-    </>
-  );
-}
-
-interface EpisodeListProps { episodes: any[]; loading: boolean; selectedEp: number; onSelect: (n: number) => void; maxHeight: string; }
-function EpisodeList({ episodes, loading, selectedEp, onSelect, maxHeight }: EpisodeListProps) {
-  if (loading) return <div className="space-y-3">{[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>;
-  if (!episodes.length) return <p className="text-muted-foreground text-sm text-center py-4">No episodes found.</p>;
-  return (
-    <div className="overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2" style={{ maxHeight }}>
-      {episodes.map((ep) => (
-        <button key={ep.number} data-testid={`ep-btn-${ep.number}`} onClick={() => onSelect(ep.number)} className={`flex gap-3 items-center text-left p-2.5 rounded-lg transition-all border w-full ${selectedEp === ep.number ? "bg-primary/10 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] text-primary" : "bg-secondary/30 border-transparent hover:bg-secondary hover:border-primary/30 text-foreground"}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold font-mono text-xs ${selectedEp === ep.number ? "bg-primary text-black" : "bg-black/50 text-muted-foreground"}`}>{ep.number}</div>
-          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-            <h4 className="text-sm font-medium line-clamp-1" title={ep.title || `Episode ${ep.number}`}>{ep.title || `Episode ${ep.number}`}</h4>
-            {ep.aired && <p className="text-xs opacity-60 line-clamp-1">{new Date(ep.aired).toLocaleDateString()}</p>}
-          </div>
-          {ep.filler && <Badge variant="outline" className="text-[9px] border-yellow-500/50 text-yellow-500 bg-yellow-500/10 px-1 py-0 shrink-0">FILLER</Badge>}
-        </button>
-      ))}
-    </div>
   );
 }
