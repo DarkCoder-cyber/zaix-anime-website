@@ -246,6 +246,7 @@ export default function WatchPage() {
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [streamLoading, setStreamLoading] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [hindiNotAvailable, setHindiNotAvailable] = useState(false);
   const [activeProvider, setActiveProvider] = useState<string>("");
   const [activeServer, setActiveServer] = useState<string>("vidstreaming");
   const [langFilter, setLangFilter] = useState<LangFilter>("sub");
@@ -485,9 +486,41 @@ export default function WatchPage() {
   const fetchStream = useCallback(async (epNumber: number) => {
     setStreamLoading(true);
     setStreamError(null);
+    setHindiNotAvailable(false);
     clearAutoPlayTimer();
     clearFailoverTimer();
     const lang = langFilterRef.current;
+    const isDoraemonTitle = (anime as any)?.title?.toLowerCase().includes("doraemon") ?? false;
+
+    // ── Hindi + Doraemon: bypass ALL external APIs, use hardcoded registry only ──
+    if (lang === "hindi" && isDoraemonTitle) {
+      try {
+        const res = await fetch(`/api/anime/hindi-stream?malId=${malId}&episode=${epNumber}`);
+        const data = await res.json();
+        if (data.available && data.playerUrl) {
+          const provider = { name: "hindi_direct", label: data.label || "🇮🇳 Hindi Dub", url: data.playerUrl };
+          setStreamData({
+            malId, episode: epNumber, season: 1, imdbId: null,
+            embedUrl: data.playerUrl,
+            providers: [provider],
+            lang: "hindi", isHindi: true, isDoraemon: true,
+          });
+          setActiveProvider("hindi_direct");
+          startPlayerTimer();
+        } else {
+          // No Hindi entry for this episode — show "coming soon", NOT an error
+          setStreamData(null);
+          setHindiNotAvailable(true);
+        }
+      } catch (err: any) {
+        setStreamError(err.message || "Could not load Hindi stream");
+      } finally {
+        setStreamLoading(false);
+      }
+      return;
+    }
+
+    // ── Normal path for all other language / title combinations ──
     try {
       const res = await fetch(`/api/anime/stream?malId=${malId}&episode=${epNumber}&season=1&lang=${lang}`);
       if (!res.ok) {
@@ -511,7 +544,7 @@ export default function WatchPage() {
     } finally {
       setStreamLoading(false);
     }
-  }, [malId, autoPlay, episodes, clearAutoPlayTimer, clearFailoverTimer, startAutoPlayCountdown, startFailoverTimer, startPlayerTimer]);
+  }, [malId, anime, autoPlay, episodes, clearAutoPlayTimer, clearFailoverTimer, startAutoPlayCountdown, startFailoverTimer, startPlayerTimer]);
 
   const handleEpisodeClick = (epNumber: number) => {
     setSelectedEp(epNumber);
@@ -695,6 +728,34 @@ export default function WatchPage() {
                     <Button variant="outline" size="sm" className="border-primary/50 text-primary hover:bg-primary/10" onClick={() => fetchStream(selectedEp)}>
                       <RefreshCw className="w-4 h-4 mr-2" /> Retry
                     </Button>
+                  </div>
+                )}
+                {!streamLoading && !streamError && hindiNotAvailable && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10 p-6 text-center">
+                    <div style={{ fontSize: 52, lineHeight: 1 }}>🇮🇳</div>
+                    <p className="text-white font-bold text-lg mt-4 mb-1">Hindi Dub Coming Soon</p>
+                    <p className="text-muted-foreground text-sm mb-5 max-w-xs leading-relaxed">
+                      Hindi dubbed audio for Episode {selectedEp} hasn't been added to our registry yet.
+                      Switch to Sub or Eng Dub to watch now.
+                    </p>
+                    <div className="flex gap-3 flex-wrap justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-primary/50 text-primary hover:bg-primary/10"
+                        onClick={() => setLangFilter("sub")}
+                      >
+                        Watch in Sub
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+                        onClick={() => setLangFilter("dub")}
+                      >
+                        Eng Dub
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {!streamLoading && !streamError && currentEmbedUrl && (

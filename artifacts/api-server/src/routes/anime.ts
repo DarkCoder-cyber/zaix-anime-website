@@ -459,14 +459,94 @@ function buildPlayerHtml(title: string, episode: number, hlsSrc: string, subtitl
 </html>`;
 }
 
-// GET /api/anime/player?malId=X&episode=Y — self-hosted HLS player via GogoAnime (Consumet)
-router.get("/anime/player", async (req: Request, res: Response) => {
+// ─── Doraemon Hindi hardcoded stream registry ─────────────────────────────────
+// Episodes/movies listed here will load instantly via the internal HLS player.
+// Replace placeholder URLs with real Hindi-dubbed HLS/mp4 sources when available.
+// Format: malId → episode (0 = movie/whole title) → stream entry
+const DORAEMON_HINDI_STREAMS: Record<number, Record<number, { url: string; quality: string; label: string }>> = {
+  // Doraemon 2005 TV series — episodes 1-5 wired with test HLS stream
+  2471: {
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 1 (Test)" },
+    2: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 2 (Test)" },
+    3: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 3 (Test)" },
+    4: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 4 (Test)" },
+    5: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 5 (Test)" },
+  },
+  // Stand By Me Doraemon (movie)
+  14741: {
+    0: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me Doraemon — Hindi (Test)" },
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me Doraemon — Hindi (Test)" },
+  },
+  // Doraemon: Nobita and the Steel Troops (movie)
+  10534: {
+    0: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Steel Troops — Hindi Dub (Test)" },
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Steel Troops — Hindi Dub (Test)" },
+  },
+  // Stand By Me Doraemon 2
+  39537: {
+    0: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me 2 — Hindi Dub (Test)" },
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me 2 — Hindi Dub (Test)" },
+  },
+};
+
+// GET /api/anime/hindi-stream?malId=X&episode=Y
+// Returns hardcoded Hindi stream entry if available, otherwise { available: false }
+router.get("/anime/hindi-stream", (req: Request, res: Response) => {
   const malId = parseInt(String(req.query.malId || ""));
+  const episode = parseInt(String(req.query.episode || "1"));
+
+  if (isNaN(malId) || malId <= 0) {
+    res.status(400).json({ error: "malId is required" });
+    return;
+  }
+
+  const titleMap = DORAEMON_HINDI_STREAMS[malId];
+  if (!titleMap) {
+    res.json({ available: false, malId, episode });
+    return;
+  }
+
+  // Try exact episode, then 0 (movie/whole-title fallback)
+  const entry = titleMap[episode] ?? titleMap[0] ?? null;
+  if (!entry) {
+    res.json({ available: false, malId, episode });
+    return;
+  }
+
+  // Build the player URL — serves real HLS via our own HLS.js embed
+  const playerUrl = `/api/anime/player?src=${encodeURIComponent(entry.url)}&episode=${episode}`;
+
+  req.log.info({ malId, episode, label: entry.label }, "Hindi stream served from registry");
+  res.json({
+    available: true,
+    malId,
+    episode,
+    url: entry.url,
+    quality: entry.quality,
+    label: entry.label,
+    playerUrl,
+  });
+});
+
+// GET /api/anime/player?malId=X&episode=Y  — OR —  ?src=URL&episode=Y  (direct HLS)
+router.get("/anime/player", async (req: Request, res: Response) => {
+  const directSrc = String(req.query.src || "").trim();
   const episode = parseInt(String(req.query.episode || "1"));
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "no-referrer");
+
+  // Direct-src path: skip all API calls, serve the provided HLS/mp4 URL immediately
+  if (directSrc) {
+    const titleParam = String(req.query.title || "Doraemon");
+    req.log.info({ directSrc: directSrc.slice(0, 80), episode }, "HLS player: direct src");
+    res.send(buildPlayerHtml(titleParam, episode, directSrc, []));
+    return;
+  }
+
+  // Fallback: resolve via HiAnime using malId
+  const malId = parseInt(String(req.query.malId || ""));
 
   let title = "Anime";
   try {
