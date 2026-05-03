@@ -44,7 +44,6 @@ export function useAdmin() {
 
   const login = useCallback(
     async (username: string, password: string): Promise<boolean> => {
-      if (username.trim().toLowerCase() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) return false;
       try {
         const res = await fetch("/api/auth/admin-login", {
           method: "POST",

@@ -96,6 +96,8 @@ router.post("/auth/admin-login", async (req: Request, res: Response) => {
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
 
+  console.log("[admin-login] received", { username, passwordLength: password.length, raw: req.body });
+
   if (username.toLowerCase() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
     res.status(401).json({ error: "Invalid admin credentials" });
     return;
