@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
 import { db, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { getSeasonInfo } from "../utils/season-reset";
 
 const router = Router();
 const JWT_SECRET = process.env.SESSION_SECRET ?? "zaix-anime-secret-key";
@@ -30,15 +31,15 @@ router.get("/xp", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
   const [user] = await db
-    .select({ totalXp: usersTable.totalXp })
+    .select({ totalXp: usersTable.totalXp, weeklyXp: usersTable.weeklyXp })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
     .limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  res.json(computeLevelData(user.totalXp ?? 0));
+  res.json({ ...computeLevelData(user.totalXp ?? 0), weeklyXp: user.weeklyXp ?? 0 });
 });
 
-// POST /api/xp/award — add XP to current user (max 100 per call to prevent abuse)
+// POST /api/xp/award — add XP to current user (max 100 per call)
 router.post("/xp/award", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
@@ -48,11 +49,24 @@ router.post("/xp/award", async (req: Request, res: Response) => {
   }
   const [updated] = await db
     .update(usersTable)
-    .set({ totalXp: sql`${usersTable.totalXp} + ${amount}` })
+    .set({
+      totalXp: sql`${usersTable.totalXp} + ${amount}`,
+      weeklyXp: sql`${usersTable.weeklyXp} + ${amount}`,
+    })
     .where(eq(usersTable.id, userId))
-    .returning({ totalXp: usersTable.totalXp });
+    .returning({ totalXp: usersTable.totalXp, weeklyXp: usersTable.weeklyXp });
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
-  res.json(computeLevelData(updated.totalXp ?? 0));
+  res.json({ ...computeLevelData(updated.totalXp ?? 0), weeklyXp: updated.weeklyXp ?? 0 });
+});
+
+// GET /api/xp/season — current season info + next reset countdown
+router.get("/xp/season", async (_req: Request, res: Response) => {
+  try {
+    const info = await getSeasonInfo();
+    res.json(info);
+  } catch {
+    res.status(500).json({ error: "Failed to fetch season info" });
+  }
 });
 
 export default router;

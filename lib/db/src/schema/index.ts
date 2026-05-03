@@ -8,3 +8,4 @@ export * from "./watch_progress";
 export * from "./review_replies";
 export * from "./notifications";
 export * from "./stream_reports";
+export * from "./settings";
