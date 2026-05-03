@@ -181,6 +181,7 @@ function LiveChatBubble() {
   const { authenticated: isAdmin, adminToken } = useAdmin();
   const { user, setModalOpen } = useAuth();
   const [messages, setMessages] = useState<LiveMsg[]>([]);
+  const [activeCount, setActiveCount] = useState(0);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -195,12 +196,17 @@ function LiveChatBubble() {
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch("/api/chat");
+      const token = getAuthToken();
+      const res = await fetch("/api/chat", {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      });
       if (!res.ok) return;
       const data = await res.json();
       setMessages(data.messages ?? []);
+      if (typeof data.activeCount === "number") setActiveCount(data.activeCount);
     } catch {}
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, adminToken, user]);
 
   useEffect(() => {
     if (!open) return;
@@ -286,6 +292,16 @@ function LiveChatBubble() {
               <MessageCircle className="w-4 h-4" />
               Live Chat
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#a855f7", boxShadow: "0 0 5px #a855f7" }} />
+              {activeCount > 0 && (
+                <span
+                  className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full"
+                  style={{ background: "rgba(168,85,247,0.15)", color: "rgba(168,85,247,0.9)", border: "1px solid rgba(168,85,247,0.25)" }}
+                  title={`${activeCount} user${activeCount === 1 ? "" : "s"} active in the last 30s`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#a855f7" }} />
+                  {activeCount}
+                </span>
+              )}
             </div>
             <button className="text-[#b3b3b3] hover:text-white text-lg leading-none" onClick={() => setOpen(false)}>×</button>
           </div>

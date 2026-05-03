@@ -8,6 +8,31 @@ const router: IRouter = Router();
 const JWT_SECRET = process.env.SESSION_SECRET ?? "zaix-anime-secret-key";
 const ALLOWED_REACTIONS = new Set(["👍","❤️","😂","🔥","😮"]);
 
+// ── Active user heartbeat tracker ─────────────────────────────────────────────
+const ACTIVE_WINDOW_MS = 30_000; // 30 seconds
+const heartbeats = new Map<string, number>(); // userName → lastSeenTimestamp
+
+function touchHeartbeat(name: string) {
+  heartbeats.set(name, Date.now());
+}
+
+function getActiveCount(): number {
+  const cutoff = Date.now() - ACTIVE_WINDOW_MS;
+  let count = 0;
+  for (const [, ts] of heartbeats) {
+    if (ts >= cutoff) count++;
+  }
+  return count;
+}
+
+// Purge stale entries every minute
+setInterval(() => {
+  const cutoff = Date.now() - ACTIVE_WINDOW_MS * 4;
+  for (const [name, ts] of heartbeats) {
+    if (ts < cutoff) heartbeats.delete(name);
+  }
+}, 60_000);
+
 async function resolveSender(authHeader: string | undefined): Promise<{ name: string; isAdmin: boolean } | null> {
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.slice(7);
@@ -30,8 +55,22 @@ async function resolveSender(authHeader: string | undefined): Promise<{ name: st
   return null;
 }
 
-// GET /api/chat — last 100 messages with reactions
+// GET /api/chat — last 100 messages with reactions + active user count
 router.get("/chat", async (req: Request, res: Response) => {
+  // Register heartbeat for the requesting user (if identified via token)
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const payload = jwt.verify(authHeader.slice(7), JWT_SECRET) as any;
+      if (payload.admin === true && payload.username) {
+        touchHeartbeat(String(payload.username));
+      } else if (typeof payload.userId === "number") {
+        // Use userId as key to avoid a DB lookup on every poll
+        touchHeartbeat(`uid:${payload.userId}`);
+      }
+    } catch {}
+  }
+
   try {
     const msgs = await db
       .select()
@@ -63,7 +102,7 @@ router.get("/chat", async (req: Request, res: Response) => {
       })),
     }));
 
-    res.json({ messages });
+    res.json({ messages, activeCount: getActiveCount() });
   } catch (err: any) {
     req.log.error({ err }, "Failed to fetch chat");
     res.status(500).json({ error: "Failed to fetch chat" });
