@@ -490,10 +490,15 @@ export default function WatchPage() {
     clearAutoPlayTimer();
     clearFailoverTimer();
     const lang = langFilterRef.current;
-    const isDoraemonTitle = (anime as any)?.title?.toLowerCase().includes("doraemon") ?? false;
+    const titleLower = (anime as any)?.title?.toLowerCase() ?? "";
+    const isHindiDubTitle =
+      titleLower.includes("doraemon") ||
+      titleLower.includes("shin-chan") ||
+      titleLower.includes("shinchan") ||
+      titleLower.includes("crayon shin");
 
-    // ── Hindi + Doraemon: bypass ALL external APIs, use hardcoded registry only ──
-    if (lang === "hindi" && isDoraemonTitle) {
+    // ── Hindi + Doraemon/Shinchan: bypass ALL external APIs, use registry only ──
+    if (lang === "hindi" && isHindiDubTitle) {
       try {
         const res = await fetch(`/api/anime/hindi-stream?malId=${malId}&episode=${epNumber}`);
         const data = await res.json();
@@ -503,12 +508,13 @@ export default function WatchPage() {
             malId, episode: epNumber, season: 1, imdbId: null,
             embedUrl: data.playerUrl,
             providers: [provider],
-            lang: "hindi", isHindi: true, isDoraemon: true,
+            lang: "hindi", isHindi: true,
+            isDoraemon: data.isDoraemon ?? false,
           });
           setActiveProvider("hindi_direct");
           startPlayerTimer();
         } else {
-          // No Hindi entry for this episode — show "coming soon", NOT an error
+          // No Hindi entry yet — show "uploading" message, NOT an error
           setStreamData(null);
           setHindiNotAvailable(true);
         }
@@ -593,10 +599,15 @@ export default function WatchPage() {
   };
 
   const isDoraemon = useMemo(() => (anime as any)?.title?.toLowerCase().includes("doraemon") ?? false, [anime]);
+  const isShinchan = useMemo(() => {
+    const t = (anime as any)?.title?.toLowerCase() ?? "";
+    return t.includes("shin-chan") || t.includes("shinchan") || t.includes("crayon shin");
+  }, [anime]);
+  const isHindiTitle = isDoraemon || isShinchan;
 
   useEffect(() => {
-    if (isDoraemon) setLangFilter("hindi");
-  }, [isDoraemon]);
+    if (isHindiTitle) setLangFilter("hindi");
+  }, [isHindiTitle]);
 
   // When user switches language AND a stream is already loaded, re-fetch with the new lang
   const prevLangRef = useRef<LangFilter>("sub");
@@ -716,8 +727,19 @@ export default function WatchPage() {
                 <div ref={playerContainerRef} className="w-full aspect-video bg-black rounded-xl overflow-hidden relative border border-primary/20 shadow-neon" style={{ transform: "translateZ(0)", zIndex: 1, position: "relative" }}>
                 {streamLoading && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10">
-                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-                    <p className="text-primary font-medium animate-pulse">Loading stream...</p>
+                    {langFilter === "hindi" && isHindiTitle ? (
+                      <>
+                        <div className="text-4xl mb-4 animate-pulse">🇮🇳</div>
+                        <p className="font-bold text-sm animate-pulse" style={{ color: isShinchan ? "#ffcc00" : "#00bfff" }}>
+                          Searching Indian Servers for Hindi Dub…
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                        <p className="text-primary font-medium animate-pulse">Loading stream...</p>
+                      </>
+                    )}
                   </div>
                 )}
                 {!streamLoading && streamError && (
@@ -733,10 +755,15 @@ export default function WatchPage() {
                 {!streamLoading && !streamError && hindiNotAvailable && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10 p-6 text-center">
                     <div style={{ fontSize: 52, lineHeight: 1 }}>🇮🇳</div>
-                    <p className="text-white font-bold text-lg mt-4 mb-1">Hindi Dub Coming Soon</p>
+                    <p
+                      className="font-bold text-lg mt-4 mb-1"
+                      style={{ color: isShinchan ? "#ffcc00" : "#00bfff" }}
+                    >
+                      Hindi audio is being uploaded by Zaix.
+                    </p>
                     <p className="text-muted-foreground text-sm mb-5 max-w-xs leading-relaxed">
-                      Hindi dubbed audio for Episode {selectedEp} hasn't been added to our registry yet.
-                      Switch to Sub or Eng Dub to watch now.
+                      We couldn't find Episode {selectedEp} on any Indian server right now.
+                      Check back soon — or watch in Sub / Eng Dub for now.
                     </p>
                     <div className="flex gap-3 flex-wrap justify-center">
                       <Button
@@ -911,27 +938,36 @@ export default function WatchPage() {
                 </div>
               </div>
 
-              {/* Hindi Dub Available Banner */}
-              {isDoraemon && langFilter === "hindi" && (
-                <div
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold animate-in fade-in duration-300"
-                  style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.35)", color: "#00bfff", boxShadow: "0 0 16px rgba(0,191,255,0.12)" }}
-                >
-                  <span className="text-lg">🇮🇳</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-[13px]">Hindi Dub Selected</span>
-                    <span className="text-[11px] opacity-75 font-normal" style={{ color: "#00bfff" }}>
-                      Doraemon is available in Hindi Dubbed audio
+              {/* Hindi Dub Available Banner — Doraemon (sky blue) or Shinchan (red/yellow) */}
+              {isHindiTitle && langFilter === "hindi" && (() => {
+                const accent = isShinchan ? "#ffcc00" : "#00bfff";
+                const title = isShinchan ? "Shinchan" : "Doraemon";
+                return (
+                  <div
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold animate-in fade-in duration-300"
+                    style={{
+                      background: isShinchan ? "rgba(255,200,0,0.07)" : "rgba(0,191,255,0.08)",
+                      border: `1px solid ${accent}59`,
+                      color: accent,
+                      boxShadow: `0 0 16px ${accent}1f`,
+                    }}
+                  >
+                    <span className="text-lg">🇮🇳</span>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-[13px]">Hindi Dub Selected</span>
+                      <span className="text-[11px] opacity-75 font-normal" style={{ color: accent }}>
+                        {title} is available in Hindi Dubbed audio
+                      </span>
+                    </div>
+                    <span
+                      className="ml-auto text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0"
+                      style={{ background: `${accent}2e`, border: `1px solid ${accent}72`, color: accent }}
+                    >
+                      HINDI AUDIO
                     </span>
                   </div>
-                  <span
-                    className="ml-auto text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0"
-                    style={{ background: "rgba(0,191,255,0.18)", border: "1px solid rgba(0,191,255,0.45)" }}
-                  >
-                    HINDI AUDIO
-                  </span>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Server Switcher */}
               <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">

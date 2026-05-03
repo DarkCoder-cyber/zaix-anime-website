@@ -86,7 +86,11 @@ export function AnimeCard({ anime, layout = "trending", showHindiBadge, accentCo
             {showHindiBadge && (
               <Badge
                 className="backdrop-blur-sm text-[10px] font-extrabold tracking-wide px-1.5 py-0.5"
-                style={{ background: "rgba(0,191,255,0.18)", color: "#00bfff", borderColor: "rgba(0,191,255,0.55)" }}
+                style={{
+                  background: accentColor ? `${accentColor}2e` : "rgba(0,191,255,0.18)",
+                  color: accentColor ?? "#00bfff",
+                  borderColor: accentColor ? `${accentColor}8c` : "rgba(0,191,255,0.55)",
+                }}
               >
                 🇮🇳 HI
               </Badge>

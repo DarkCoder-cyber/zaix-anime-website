@@ -51,8 +51,8 @@ async function getIdMappings(malId: number): Promise<any> {
   return data;
 }
 
-// ─── Doraemon Hindi content registry ─────────────────────────────────────────
-// MAL IDs known to have Hindi dub audio on major embed providers
+// ─── Indian dub title registries ──────────────────────────────────────────────
+// Doraemon MAL IDs (Hindi dub available)
 const DORAEMON_MAL_IDS = new Set([
   501,   // Doraemon (1973 original)
   2471,  // Doraemon (2005 TV series) — primary Hindi dubbed run
@@ -68,18 +68,40 @@ const DORAEMON_MAL_IDS = new Set([
   28891, // Doraemon: New Nobita's Great Demon
 ]);
 
+// Shinchan MAL IDs (Hindi dub available — hugely popular in India)
+const SHINCHAN_MAL_IDS = new Set([
+  1,     // Crayon Shin-chan (1992 original)
+  2102,  // Crayon Shin-chan (newer broadcast)
+  4148,  // Crayon Shin-chan: The Adult Empire Strikes Back (movie)
+  9741,  // Crayon Shin-chan: The Storm Called: The Hero of Kinpoko
+  14289, // Crayon Shin-chan: The Legend Called: Buri Buri 3 Minutes Charge
+  16947, // Crayon Shin-chan: Roar! Kasukabe Animal Kingdom
+  24405, // Crayon Shin-chan: Serious Battle! Robot Dad Strikes Back
+  30276, // Crayon Shin-chan: My Moving Story! Cactus Large Attack!
+  34798, // Crayon Shin-chan: Burst Serving! Kung Fu Boys - Ramen Rebellion
+]);
+
+function isDoraemonContent(malId: number): boolean {
+  return DORAEMON_MAL_IDS.has(malId);
+}
+
+function isShinchanContent(malId: number): boolean {
+  return SHINCHAN_MAL_IDS.has(malId);
+}
+
+// Combined check: any title that gets the Hindi dub scraper treatment
+function isHindiDubTitle(malId: number): boolean {
+  return isDoraemonContent(malId) || isShinchanContent(malId);
+}
+
 // Known direct Hindi-dubbed stream fallback URLs (sourced & verified)
-// Format: malId → { url, label }
 const HINDI_FALLBACK_URLS: Record<number, { url: string; label: string }> = {
   2471:  { url: "https://vidsrc.cc/v2/embed/tv/tt1260910/1/1?autoPlay=1", label: "VidSrc.cc Hindi" },
   14741: { url: "https://vidsrc.to/embed/movie/tt3170156",                label: "VidSrc.to Hindi" },
   10534: { url: "https://vidsrc.to/embed/movie/tt2113207",                label: "VidSrc.to Hindi" },
   39537: { url: "https://vidsrc.cc/v2/embed/movie/tt10634486?autoPlay=1", label: "VidSrc.cc Hindi" },
+  1:     { url: "https://vidsrc.cc/v2/embed/tv/tt0096944/1/1?autoPlay=1", label: "VidSrc.cc Hindi" },
 };
-
-function isDoraemonContent(malId: number): boolean {
-  return DORAEMON_MAL_IDS.has(malId);
-}
 
 function buildProviderUrls(imdbId: string | null, malId: number, episode: number, season: number) {
   const providers: { name: string; url: string; label: string }[] = [];
@@ -459,38 +481,59 @@ function buildPlayerHtml(title: string, episode: number, hlsSrc: string, subtitl
 </html>`;
 }
 
-// ─── Doraemon Hindi hardcoded stream registry ─────────────────────────────────
-// Episodes/movies listed here will load instantly via the internal HLS player.
-// Replace placeholder URLs with real Hindi-dubbed HLS/mp4 sources when available.
-// Format: malId → episode (0 = movie/whole title) → stream entry
-const DORAEMON_HINDI_STREAMS: Record<number, Record<number, { url: string; quality: string; label: string }>> = {
-  // Doraemon 2005 TV series — episodes 1-5 wired with test HLS stream
+// ─── Hindi dub stream registry (Doraemon + Shinchan) ─────────────────────────
+// Any entry here is served directly via our internal HLS.js player — no external
+// API is called.  Replace the test placeholder URLs with real Hindi HLS/mp4
+// sources when you source them.
+// Format: malId → episode number (0 = whole-movie fallback) → stream entry
+const HINDI_STREAM_REGISTRY: Record<number, Record<number, { url: string; quality: string; label: string }>> = {
+  // ── Doraemon (2005 TV) — episodes 1-5 ──────────────────────────────────────
   2471: {
-    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 1 (Test)" },
-    2: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 2 (Test)" },
-    3: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 3 (Test)" },
-    4: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 4 (Test)" },
-    5: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Hindi Dub — Ep 5 (Test)" },
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Doraemon Hindi Dub — Ep 1 (Test)" },
+    2: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Doraemon Hindi Dub — Ep 2 (Test)" },
+    3: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Doraemon Hindi Dub — Ep 3 (Test)" },
+    4: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Doraemon Hindi Dub — Ep 4 (Test)" },
+    5: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Doraemon Hindi Dub — Ep 5 (Test)" },
   },
-  // Stand By Me Doraemon (movie)
+  // ── Stand By Me Doraemon (movie) ────────────────────────────────────────────
   14741: {
     0: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me Doraemon — Hindi (Test)" },
     1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me Doraemon — Hindi (Test)" },
   },
-  // Doraemon: Nobita and the Steel Troops (movie)
+  // ── Doraemon: Steel Troops (movie) ──────────────────────────────────────────
   10534: {
     0: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Steel Troops — Hindi Dub (Test)" },
     1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Steel Troops — Hindi Dub (Test)" },
   },
-  // Stand By Me Doraemon 2
+  // ── Stand By Me Doraemon 2 (movie) ──────────────────────────────────────────
   39537: {
     0: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me 2 — Hindi Dub (Test)" },
     1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Stand By Me 2 — Hindi Dub (Test)" },
   },
+  // ── Crayon Shin-chan (1992 original TV) — episodes 1-5 ──────────────────────
+  1: {
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 1 (Test)" },
+    2: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 2 (Test)" },
+    3: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 3 (Test)" },
+    4: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 4 (Test)" },
+    5: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 5 (Test)" },
+  },
+  // ── Crayon Shin-chan (newer TV series) ─────────────────────────────────────
+  2102: {
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 1 (Test)" },
+    2: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 2 (Test)" },
+    3: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan Hindi Dub — Ep 3 (Test)" },
+  },
+  // ── Crayon Shin-chan: The Adult Empire Strikes Back (movie) ─────────────────
+  4148: {
+    0: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan: Adult Empire — Hindi (Test)" },
+    1: { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", quality: "auto", label: "🇮🇳 Shinchan: Adult Empire — Hindi (Test)" },
+  },
 };
 
 // GET /api/anime/hindi-stream?malId=X&episode=Y
-// Returns hardcoded Hindi stream entry if available, otherwise { available: false }
+// Used by Doraemon + Shinchan sections. Bypasses all external providers.
+// Returns stream entry if in registry, otherwise { available: false }.
 router.get("/anime/hindi-stream", (req: Request, res: Response) => {
   const malId = parseInt(String(req.query.malId || ""));
   const episode = parseInt(String(req.query.episode || "1"));
@@ -500,20 +543,25 @@ router.get("/anime/hindi-stream", (req: Request, res: Response) => {
     return;
   }
 
-  const titleMap = DORAEMON_HINDI_STREAMS[malId];
-  if (!titleMap) {
-    res.json({ available: false, malId, episode });
+  // Only serve to Doraemon / Shinchan titles
+  if (!isHindiDubTitle(malId)) {
+    res.json({ available: false, malId, episode, reason: "not_hindi_title" });
     return;
   }
 
-  // Try exact episode, then 0 (movie/whole-title fallback)
+  const titleMap = HINDI_STREAM_REGISTRY[malId];
+  if (!titleMap) {
+    // Title is in the registry lists but no streams added yet → "uploading" state
+    res.json({ available: false, malId, episode, reason: "uploading" });
+    return;
+  }
+
   const entry = titleMap[episode] ?? titleMap[0] ?? null;
   if (!entry) {
-    res.json({ available: false, malId, episode });
+    res.json({ available: false, malId, episode, reason: "uploading" });
     return;
   }
 
-  // Build the player URL — serves real HLS via our own HLS.js embed
   const playerUrl = `/api/anime/player?src=${encodeURIComponent(entry.url)}&episode=${episode}`;
 
   req.log.info({ malId, episode, label: entry.label }, "Hindi stream served from registry");
@@ -525,6 +573,8 @@ router.get("/anime/hindi-stream", (req: Request, res: Response) => {
     quality: entry.quality,
     label: entry.label,
     playerUrl,
+    isDoraemon: isDoraemonContent(malId),
+    isShinchan: isShinchanContent(malId),
   });
 });
 
