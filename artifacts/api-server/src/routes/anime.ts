@@ -227,6 +227,36 @@ router.get("/anime/stream", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/anime/schedule?day=monday
+router.get("/anime/schedule", async (req: Request, res: Response) => {
+  try {
+    const day = String(req.query.day || "monday").toLowerCase();
+    const validDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+    if (!validDays.includes(day)) {
+      res.status(400).json({ error: "Invalid day" });
+      return;
+    }
+    const data = await jikanFetch(`/schedules?filter=${day}&limit=25`);
+    const items = (data.data ?? []).map((item: any) => ({
+      malId: item.mal_id,
+      title: item.title_english || item.title,
+      image: item.images?.jpg?.large_image_url || item.images?.jpg?.image_url,
+      score: item.score ?? null,
+      episodes: item.episodes ?? null,
+      status: item.status ?? null,
+      genres: (item.genres ?? []).map((g: any) => g.name),
+      type: item.type ?? null,
+      airingTime: item.broadcast?.time ?? null,
+      airingDay: item.broadcast?.day ?? day,
+      year: item.year ?? null,
+    }));
+    res.json({ data: items, day });
+  } catch (err: any) {
+    req.log.error({ err }, "Failed to fetch schedule");
+    res.status(500).json({ error: "Failed to fetch schedule" });
+  }
+});
+
 // GET /api/anime/:malId — Anime detail (must come AFTER static routes)
 router.get("/anime/:malId", async (req: Request, res: Response) => {
   try {

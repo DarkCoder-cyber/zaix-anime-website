@@ -112,6 +112,8 @@ export function Navbar() {
     { href: "/", label: "Home" },
     { href: "/categories", label: "Categories" },
     { href: "/trending", label: "Trending" },
+    { href: "/schedule", label: "Schedule" },
+    { href: "/watch-party", label: "Watch Party" },
   ];
 
   const searchTypeTabs: { key: SearchType; label: string }[] = [
@@ -119,6 +121,14 @@ export function Navbar() {
     { key: "anime", label: "Anime" },
     { key: "manga", label: "Manga" },
     { key: "manhwa", label: "Manhwa" },
+  ];
+
+  type LangFilter = "sub" | "dub" | "hindi";
+  const [langFilter, setLangFilter] = useState<LangFilter>("sub");
+  const LANG_TABS: { key: LangFilter; label: string }[] = [
+    { key: "sub", label: "Sub" },
+    { key: "dub", label: "Eng Dub" },
+    { key: "hindi", label: "Hindi Dub" },
   ];
 
   return (
@@ -213,6 +223,25 @@ export function Navbar() {
                       </button>
                     ))}
                   </div>
+                  {/* Language filter row */}
+                  {(searchType === "all" || searchType === "anime") && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 border-b border-primary/10 bg-black/30">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest mr-1 shrink-0">Lang:</span>
+                      {LANG_TABS.map((l) => (
+                        <button
+                          key={l.key}
+                          onClick={() => setLangFilter(l.key)}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                            langFilter === l.key
+                              ? "bg-primary/20 text-primary border-primary/50 shadow-neon"
+                              : "border-border text-muted-foreground hover:text-white hover:border-white/30"
+                          }`}
+                        >
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {!isQueryActive ? (
                     <div className="p-4 text-center text-muted-foreground text-sm">
