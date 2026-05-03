@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   Share2, Heart, MessageSquare, Star, Send, Play, Tv,
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { AdminCrown } from "@/components/admin-badge";
 import { useAdmin } from "@/hooks/use-admin";
 import { useAuth } from "@/hooks/use-auth";
+import { useAmbientColor } from "@/hooks/use-ambient-color";
 import {
   useGetAnimeById,
   useGetAnimeEpisodes,
@@ -258,6 +259,19 @@ export default function WatchPage() {
   const { data: anime, isLoading: animeLoading } = useGetAnimeById(malId, {
     query: { enabled: malId > 0, queryKey: getGetAnimeByIdQueryKey(malId) },
   });
+  const ambientColor = useAmbientColor((anime as any)?.image ?? null);
+  const ambientStyle = useMemo(() => {
+    if (!ambientColor) return {};
+    const { r, g, b } = ambientColor;
+    return {
+      background: `
+        radial-gradient(ellipse 90% 55% at 15% 15%, rgba(${r},${g},${b},0.22) 0%, transparent 65%),
+        radial-gradient(ellipse 75% 65% at 85% 85%, rgba(${r},${g},${b},0.16) 0%, transparent 60%),
+        radial-gradient(ellipse 55% 45% at 50% 5%,  rgba(${r},${g},${b},0.12) 0%, transparent 55%)
+      `,
+    };
+  }, [ambientColor]);
+
   const { data: episodesData, isLoading: epsLoading } = useGetAnimeEpisodes(malId, {}, {
     query: { enabled: malId > 0, queryKey: getGetAnimeEpisodesQueryKey(malId, {}) },
   });
@@ -488,7 +502,15 @@ export default function WatchPage() {
     <>
       {showDownload && <DownloadModal anime={anime} episode={selectedEp} onClose={() => setShowDownload(false)} />}
 
-      <div className="min-h-screen bg-background pt-16 pb-20">
+      <div
+        className="min-h-screen pt-16 pb-20 relative"
+        style={{
+          background: ambientStyle.background
+            ? `${ambientStyle.background}, hsl(0 0% 0%)`
+            : "hsl(0 0% 0%)",
+          transition: "background 1.4s ease",
+        }}
+      >
         <div className="container mx-auto px-4 max-w-7xl mt-6">
           <SeasonTabs malId={malId} seasons={seasons} onSelect={handleSeasonSelect} />
 

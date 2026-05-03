@@ -14,9 +14,11 @@ import profilesRouter from "./profiles";
 import repliesRouter from "./replies";
 import notificationsRouter from "./notifications";
 import streamReportsRouter from "./stream-reports";
+import proxyImageRouter from "./proxy-image";
 
 const router: IRouter = Router();
 
+router.use(proxyImageRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(animeRouter);
