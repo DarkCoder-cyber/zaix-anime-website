@@ -88,8 +88,8 @@ export default function Home() {
   const { recent } = useRecentlyVisited();
   const { user } = useAuth();
   const liveUsers = useLiveUsers();
-  const [heroScroll, setHeroScroll] = useState(0);
-  const heroBgRef = useRef<HTMLImageElement>(null);
+  const heroBgRef = useRef<HTMLDivElement>(null);
+  const heroArrowRef = useRef<HTMLDivElement>(null);
   const [heroQuery, setHeroQuery] = useState("");
   const [heroResults, setHeroResults] = useState<any[]>([]);
   const [heroSearching, setHeroSearching] = useState(false);
@@ -97,9 +97,21 @@ export default function Home() {
   const heroSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setHeroScroll(window.scrollY);
+    let rafId: number;
+    const onScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (heroBgRef.current) {
+          heroBgRef.current.style.transform = `translateY(${y * 0.35}px)`;
+        }
+        if (heroArrowRef.current) {
+          heroArrowRef.current.style.opacity = y > 60 ? "0" : "1";
+        }
+      });
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(rafId); };
   }, []);
 
   useEffect(() => {
@@ -181,11 +193,11 @@ export default function Home() {
       <section className="relative w-full flex items-center justify-center overflow-hidden" style={{ height: "100svh", minHeight: 600 }}>
         {/* Parallax background */}
         <div
-          className="absolute inset-0 z-0 will-change-transform"
-          style={{ transform: `translateY(${heroScroll * 0.35}px)`, top: "-15%", bottom: "-15%", left: 0, right: 0 }}
+          ref={heroBgRef}
+          className="absolute inset-0 z-0"
+          style={{ top: "-15%", bottom: "-15%", left: 0, right: 0, willChange: "transform", transform: "translateZ(0)" }}
         >
           <img
-            ref={heroBgRef}
             src={heroBg}
             alt="Hero"
             className="w-full h-full object-cover"
@@ -342,8 +354,9 @@ export default function Home() {
 
         {/* Scroll-down arrow — fades out once user scrolls */}
         <div
+          ref={heroArrowRef}
           className="absolute bottom-10 left-0 right-0 z-[4] flex flex-col items-center gap-1 pointer-events-none transition-opacity duration-500"
-          style={{ opacity: heroScroll > 60 ? 0 : 1 }}
+          style={{ opacity: 1 }}
         >
           <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-white/40">Scroll</span>
           <div className="flex flex-col items-center" style={{ animation: "hero-bounce 1.6s ease-in-out infinite" }}>

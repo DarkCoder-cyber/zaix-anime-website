@@ -114,6 +114,7 @@
   h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 }
 
+html, body { overflow-x: hidden; }
 html { scroll-behavior: smooth; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
