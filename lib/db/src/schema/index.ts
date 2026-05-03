@@ -9,3 +9,4 @@ export * from "./review_replies";
 export * from "./notifications";
 export * from "./stream_reports";
 export * from "./settings";
+export * from "./chat_reactions";
