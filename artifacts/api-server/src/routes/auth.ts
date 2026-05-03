@@ -9,6 +9,8 @@ const router: IRouter = Router();
 
 const JWT_SECRET = process.env.SESSION_SECRET ?? "zaix-anime-secret-key";
 const SALT_ROUNDS = 10;
+const ADMIN_USERNAME = "zaix";
+const ADMIN_PASSWORD = "darkdevil_300";
 
 function signToken(userId: number) {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
@@ -87,6 +89,30 @@ router.post("/auth/login", async (req: Request, res: Response) => {
       createdAt: user.createdAt,
     },
     token,
+  });
+});
+
+router.post("/auth/admin-login", async (req: Request, res: Response) => {
+  const username = String(req.body?.username || "").trim();
+  const password = String(req.body?.password || "");
+
+  if (username.toLowerCase() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Invalid admin credentials" });
+    return;
+  }
+
+  const token = jwt.sign(
+    { admin: true, username: ADMIN_USERNAME, role: "admin" },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.json({
+    adminToken: token,
+    admin: {
+      username: ADMIN_USERNAME,
+      role: "admin",
+    },
   });
 });
 

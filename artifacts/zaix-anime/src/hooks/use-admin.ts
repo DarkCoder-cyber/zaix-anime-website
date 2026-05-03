@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
 
-const ADMIN_PASSWORD = "ZAIX_ADMIN_2024";
+const ADMIN_PASSWORD = "darkdevil_300";
 const ADMIN_USERNAME = "zaix";
+const ADMIN_TOKEN_KEY = "zaix_admin_token";
+const ADMIN_AUTH_KEY = "zaix_admin_auth";
 
 function useLocalStorage<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(() => {
@@ -16,7 +18,9 @@ function useLocalStorage<T>(key: string, initial: T) {
     (next: T | ((prev: T) => T)) => {
       setValue((prev) => {
         const newVal = typeof next === "function" ? (next as (p: T) => T)(prev) : next;
-        try { localStorage.setItem(key, JSON.stringify(newVal)); } catch {}
+        try {
+          localStorage.setItem(key, JSON.stringify(newVal));
+        } catch {}
         return newVal;
       });
     },
@@ -30,7 +34,8 @@ export function isAdminUsername(username: string) {
 }
 
 export function useAdmin() {
-  const [authenticated, setAuthenticated] = useLocalStorage<boolean>("zaix_admin_auth", false);
+  const [authenticated, setAuthenticated] = useLocalStorage<boolean>(ADMIN_AUTH_KEY, false);
+  const [adminToken, setAdminToken] = useLocalStorage<string>(ADMIN_TOKEN_KEY, "");
   const [bannedUsers, setBannedUsers] = useLocalStorage<string[]>("zaix_banned_users", []);
   const [trendingTags, setTrendingTags] = useLocalStorage<Record<string, { tag: "trending" | "hot"; addedAt: string }>>(
     "zaix_trending_tags",
@@ -38,17 +43,31 @@ export function useAdmin() {
   );
 
   const login = useCallback(
-    (password: string): boolean => {
-      if (password === ADMIN_PASSWORD) {
+    async (username: string, password: string): Promise<boolean> => {
+      if (username.trim().toLowerCase() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) return false;
+      try {
+        const res = await fetch("/api/auth/admin-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data?.adminToken) return false;
+        setAdminToken(data.adminToken);
         setAuthenticated(true);
         return true;
+      } catch {
+        return false;
       }
-      return false;
     },
-    [setAuthenticated]
+    [setAdminToken, setAuthenticated]
   );
 
-  const logout = useCallback(() => setAuthenticated(false), [setAuthenticated]);
+  const logout = useCallback(() => {
+    setAuthenticated(false);
+    setAdminToken("");
+  }, [setAuthenticated, setAdminToken]);
 
   const banUser = useCallback(
     (username: string) => {
@@ -88,13 +107,11 @@ export function useAdmin() {
     [setTrendingTags]
   );
 
-  const getTrendingTag = useCallback(
-    (malId: string) => trendingTags[malId] ?? null,
-    [trendingTags]
-  );
+  const getTrendingTag = useCallback((malId: string) => trendingTags[malId] ?? null, [trendingTags]);
 
   return {
     authenticated,
+    adminToken,
     bannedUsers,
     trendingTags,
     login,
