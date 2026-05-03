@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "8_QRvqsJrh-Izty56OgcJ"
@@ -60,3 +59,9 @@ id = "cMUfXZBxrt4bBn9ur1kEU"
 uri = "file://artifacts/zaix-anime/src/assets/chainsaw-man.png"
 type = "image"
 title = "chainsaw man poster"
+
+[[outputs]]
+id = "a1zQ4pwkJjMoxstj_fDMJ"
+uri = "file://artifacts/zaix-anime/src/assets/hero-mashup.jpg"
+type = "image"
+title = "anime collage wallpaper"

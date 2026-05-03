@@ -7,6 +7,7 @@ import { useGetTrendingAnime, useGetRecentAnime, getGetTrendingAnimeQueryKey, ge
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { Search, History, Sparkles, BookOpen, Users, Heart, Play, ExternalLink, ChevronDown, X } from "lucide-react";
+import heroBg from "@/assets/hero-mashup.jpg";
 import { useRecentlyVisited, useWatchProgress } from "@/hooks/use-local-store";
 import { cachedFetchJson } from "@/hooks/api-cache";
 import { useAuth } from "@/hooks/use-auth";
@@ -266,10 +267,10 @@ export default function Home() {
           style={{ top: "-15%", bottom: "-15%", left: 0, right: 0, willChange: "transform", transform: "translateZ(0)" }}
         >
           <img
-            src="https://images.unsplash.com/photo-1512364563001-263b4c1e4d1e?auto=format&fit=crop&w=2400&q=80"
+            src={heroBg}
             alt="Top anime mashup wallpaper"
             className="w-full h-full object-cover object-center"
-            style={{ objectPosition: "center center" }}
+            style={{ objectPosition: "center center", filter: "brightness(0.7) contrast(1.1)" }}
             decoding="async"
             fetchPriority="high"
           />
