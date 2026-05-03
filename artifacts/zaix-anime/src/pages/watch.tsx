@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
-  Share2, Heart, MessageSquare, Star, Send, Play, Tv,
+  Share2, MessageSquare, Star, Send, Play, Tv,
   AlertCircle, RefreshCw, Film, PictureInPicture2, WandSparkles,
   Download, Check, X, Server, ChevronDown, Layers, SkipForward,
-  AlertTriangle, Zap, Keyboard, Maximize2, Flag,
+  AlertTriangle, Zap, Keyboard, Flag, LayoutGrid, List,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ReviewSection } from "@/components/review-section";
@@ -138,19 +138,71 @@ function SeasonTabs({ malId, seasons, onSelect }: { malId: number; seasons: Seas
   );
 }
 
-function EpisodeListHeader({ episodes }: { episodes: any[] }) {
+function EpisodeListHeader({ episodes, viewMode, setViewMode }: { episodes: any[]; viewMode: "list" | "grid"; setViewMode: (v: "list" | "grid") => void }) {
   return (
-    <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex justify-between items-center">
-      <span>Episodes</span>
-      <Badge variant="secondary" className="bg-primary/10 text-primary">{episodes.length}</Badge>
-    </h3>
+    <div className="border-b border-border pb-3 mb-4 flex justify-between items-center">
+      <h3 className="text-lg font-bold font-heading text-white flex items-center gap-2">
+        <span>Episodes</span>
+        <Badge variant="secondary" className="bg-primary/10 text-primary">{episodes.length}</Badge>
+      </h3>
+      <div className="flex items-center gap-1 bg-black/40 rounded-lg p-0.5 border border-border">
+        <button
+          onClick={() => setViewMode("list")}
+          className={`p-1.5 rounded transition-all ${viewMode === "list" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"}`}
+          title="List view"
+        >
+          <List className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => setViewMode("grid")}
+          className={`p-1.5 rounded transition-all ${viewMode === "grid" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"}`}
+          title="Grid view"
+        >
+          <LayoutGrid className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
   );
 }
 
-interface EpisodeListProps { episodes: any[]; loading: boolean; selectedEp: number; onSelect: (n: number) => void; maxHeight: string; }
-function EpisodeList({ episodes, loading, selectedEp, onSelect, maxHeight }: EpisodeListProps) {
-  if (loading) return <div className="space-y-3">{[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>;
+interface EpisodeListProps { episodes: any[]; loading: boolean; selectedEp: number; onSelect: (n: number) => void; maxHeight: string; viewMode?: "list" | "grid"; }
+function EpisodeList({ episodes, loading, selectedEp, onSelect, maxHeight, viewMode = "list" }: EpisodeListProps) {
+  if (loading) return (
+    <div className="space-y-3">
+      {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+    </div>
+  );
   if (!episodes.length) return <p className="text-muted-foreground text-sm text-center py-4">No episodes found.</p>;
+
+  if (viewMode === "grid") {
+    return (
+      <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight }}>
+        <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5 pr-1">
+          {episodes.map((ep) => (
+            <button
+              key={ep.number}
+              data-testid={`ep-btn-${ep.number}`}
+              onClick={() => onSelect(ep.number)}
+              title={ep.title || `Episode ${ep.number}`}
+              className={`relative aspect-square rounded-lg flex items-center justify-center font-bold font-mono text-xs transition-all border ${
+                selectedEp === ep.number
+                  ? "bg-primary text-black border-primary shadow-neon"
+                  : ep.filler
+                  ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20"
+                  : "bg-secondary/40 border-transparent text-muted-foreground hover:bg-secondary hover:border-primary/40 hover:text-primary"
+              }`}
+            >
+              {ep.number}
+              {selectedEp === ep.number && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary animate-pulse shadow-neon" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2" style={{ maxHeight }}>
       {episodes.map((ep) => (
@@ -265,6 +317,13 @@ export default function WatchPage() {
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showSkipOutro, setShowSkipOutro] = useState(false);
   const [showKeyHints, setShowKeyHints] = useState(false);
+  const [epViewMode, setEpViewMode] = useState<"list" | "grid">(() => {
+    try { return (localStorage.getItem("zaix_ep_view") as "list" | "grid") ?? "list"; } catch { return "list"; }
+  });
+  const handleEpViewMode = useCallback((v: "list" | "grid") => {
+    setEpViewMode(v);
+    try { localStorage.setItem("zaix_ep_view", v); } catch {}
+  }, []);
   const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const failoverTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1198,8 +1257,8 @@ export default function WatchPage() {
 
               {/* Mobile episode list */}
               <div className="lg:hidden bg-card border border-border rounded-xl p-5">
-                <EpisodeListHeader episodes={episodes} />
-                <EpisodeList episodes={episodes} loading={epsLoading} selectedEp={selectedEp} onSelect={handleEpisodeClick} maxHeight="300px" />
+                <EpisodeListHeader episodes={episodes} viewMode={epViewMode} setViewMode={handleEpViewMode} />
+                <EpisodeList episodes={episodes} loading={epsLoading} selectedEp={selectedEp} onSelect={handleEpisodeClick} maxHeight="300px" viewMode={epViewMode} />
               </div>
 
               {malId > 0 && <ReviewSection contentType="anime" contentId={String(malId)} title={anime?.title} />}
@@ -1208,8 +1267,8 @@ export default function WatchPage() {
             {/* Right sidebar */}
             <div className="flex flex-col gap-6">
               <div className="hidden lg:block bg-card border border-border rounded-xl p-5 shadow-lg">
-                <EpisodeListHeader episodes={episodes} />
-                <EpisodeList episodes={episodes} loading={epsLoading} selectedEp={selectedEp} onSelect={handleEpisodeClick} maxHeight="500px" />
+                <EpisodeListHeader episodes={episodes} viewMode={epViewMode} setViewMode={handleEpViewMode} />
+                <EpisodeList episodes={episodes} loading={epsLoading} selectedEp={selectedEp} onSelect={handleEpisodeClick} maxHeight="500px" viewMode={epViewMode} />
               </div>
               <div className="bg-card border border-border rounded-xl p-5 shadow-lg lg:sticky lg:top-24">
                 <h3 className="text-lg font-bold font-heading text-white border-b border-border pb-3 mb-4 flex items-center gap-2">

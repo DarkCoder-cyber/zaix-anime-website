@@ -188,3 +188,13 @@ button, [role="button"] { @apply active:scale-[0.96] transition-transform durati
 .badge-new { animation: new-pulse 1.8s ease-in-out infinite; background: rgba(168, 85, 247, 0.2); color: hsl(var(--primary)); border: 1px solid rgba(168, 85, 247, 0.4); }
 .neon-cursor { width: 14px; height: 14px; border-radius: 9999px; background: rgba(168,85,247,.85); box-shadow: 0 0 20px rgba(168,85,247,.8); position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); }
 @media (max-width: 768px) { .cursor-neon, .neon-cursor { display: none; } }
+
+@keyframes shimmer-move {
+  0%   { background-position: -400px 0; }
+  100% { background-position: calc(400px + 100%) 0; }
+}
+.shimmer-bg {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.08) 80px, rgba(255,255,255,0.03) 160px);
+  background-size: 400px 100%;
+  animation: shimmer-move 1.6s ease-in-out infinite;
+}

@@ -24,6 +24,8 @@ interface AnimeCardProps {
   anime: Anime;
   layout?: "trending" | "new";
   showHindiBadge?: boolean;
+  showSubBadge?: boolean;
+  showDubBadge?: boolean;
   accentColor?: string;
 }
 
@@ -45,7 +47,7 @@ function useInView<T extends Element>() {
   return { ref, visible };
 }
 
-export function AnimeCard({ anime, layout = "trending", showHindiBadge, accentColor }: AnimeCardProps) {
+export function AnimeCard({ anime, layout = "trending", showHindiBadge, showSubBadge, showDubBadge, accentColor }: AnimeCardProps) {
   const isHot = (anime.score ?? 0) >= 8.5;
   const { ref, visible } = useInView<HTMLImageElement>();
   const [hovered, setHovered] = useState(false);
@@ -78,25 +80,13 @@ export function AnimeCard({ anime, layout = "trending", showHindiBadge, accentCo
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
 
-          {/* Top-right badges */}
+          {/* Top-right badges: score + HOT */}
           <div className="absolute top-2 right-2 flex flex-col gap-1.5 items-end">
             <Badge variant="secondary" className="bg-black/60 text-primary border-primary/50 backdrop-blur-sm">
               <Star className="w-3 h-3 mr-1 fill-primary" /> {anime.score?.toFixed(1) || "N/A"}
             </Badge>
-            {showHindiBadge && (
-              <Badge
-                className="backdrop-blur-sm text-[10px] font-extrabold tracking-wide px-1.5 py-0.5"
-                style={{
-                  background: accentColor ? `${accentColor}2e` : "rgba(0,191,255,0.18)",
-                  color: accentColor ?? "#00bfff",
-                  borderColor: accentColor ? `${accentColor}8c` : "rgba(0,191,255,0.55)",
-                }}
-              >
-                🇮🇳 HI
-              </Badge>
-            )}
-            {layout === "new" && anime.isNew && <Badge className="bg-primary text-black font-bold animate-pulse-glow">NEW</Badge>}
             {isHot && <span className="badge-hot flex items-center gap-0.5 text-[10px] font-extrabold px-1.5 py-0.5 rounded"><Flame className="w-3 h-3" /> HOT</span>}
+            {layout === "new" && anime.isNew && <Badge className="bg-primary text-black font-bold animate-pulse-glow">NEW</Badge>}
           </div>
 
           {/* Top-left badges */}
@@ -134,17 +124,50 @@ export function AnimeCard({ anime, layout = "trending", showHindiBadge, accentCo
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-0 w-full p-4 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 transform-gpu" style={{ willChange: "transform" }}>
+          {/* Bottom info + language badges */}
+          <div className="absolute bottom-0 left-0 w-full p-3 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 transform-gpu" style={{ willChange: "transform" }}>
+            {/* Language badges row */}
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {showSubBadge && (
+                <span
+                  className="text-[9px] font-extrabold px-1.5 py-0.5 rounded leading-none"
+                  style={{ background: "rgba(168,85,247,0.18)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.55)" }}
+                >
+                  SUB
+                </span>
+              )}
+              {showDubBadge && (
+                <span
+                  className="text-[9px] font-extrabold px-1.5 py-0.5 rounded leading-none"
+                  style={{ background: "rgba(59,130,246,0.18)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.55)" }}
+                >
+                  DUB
+                </span>
+              )}
+              {showHindiBadge && (
+                <span
+                  className="text-[9px] font-extrabold px-1.5 py-0.5 rounded leading-none"
+                  style={{
+                    background: accentColor ? `${accentColor}2e` : "rgba(0,191,255,0.18)",
+                    color: accentColor ?? "#00bfff",
+                    border: `1px solid ${accentColor ? `${accentColor}8c` : "rgba(0,191,255,0.55)"}`,
+                  }}
+                >
+                  🇮🇳 HI
+                </span>
+              )}
+            </div>
+
             <h3
-              className="font-bold text-lg leading-tight line-clamp-1 mb-1 transition-colors text-shadow-neon"
+              className="font-bold text-sm leading-tight line-clamp-1 mb-1 transition-colors text-shadow-neon"
               style={{ color: hovered && accentColor ? accentColor : "white" }}
             >
               {anime.title}
             </h3>
-            <div className="flex flex-wrap gap-1.5 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+            <div className="flex flex-wrap gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
               {anime.genres.slice(0, 2).map((genre) => <span key={genre} className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-white/80">{genre}</span>)}
             </div>
-            {layout === "new" && anime.releaseDate ? <p className="text-xs text-muted-foreground">{anime.releaseDate}</p> : anime.year ? <p className="text-xs text-muted-foreground">{anime.year}</p> : null}
+            {layout === "new" && anime.releaseDate ? <p className="text-xs text-muted-foreground mt-0.5">{anime.releaseDate}</p> : anime.year ? <p className="text-xs text-muted-foreground mt-0.5">{anime.year}</p> : null}
           </div>
         </CardContent>
       </Card>

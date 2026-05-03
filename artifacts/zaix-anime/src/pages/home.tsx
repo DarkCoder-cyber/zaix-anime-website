@@ -3,10 +3,11 @@ import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { AnimeCard } from "@/components/anime-card";
 import { MangaCard } from "@/components/manga-card";
+import { TrendingAnimeHero } from "@/components/trending-anime-hero";
 import { useGetTrendingAnime, useGetRecentAnime, getGetTrendingAnimeQueryKey, getGetRecentAnimeQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { Search, History, Sparkles, BookOpen, Users, Heart, Play, ExternalLink, ChevronDown, X } from "lucide-react";
+import { Search, History, Sparkles, BookOpen, Users, Play, ExternalLink, ChevronDown, X } from "lucide-react";
 import heroBg from "@/assets/hero-mashup.png";
 import { useRecentlyVisited, useWatchProgress } from "@/hooks/use-local-store";
 import { cachedFetchJson } from "@/hooks/api-cache";
@@ -628,7 +629,12 @@ export default function Home() {
 
         {activeTab === "anime" && (
           <div className="flex flex-col gap-14">
-            {/* Trending */}
+            {/* Featured Trending Hero Slider */}
+            <div>
+              <TrendingAnimeHero anime={trendingAnime} loading={trendingLoading} />
+            </div>
+
+            {/* Trending Grid */}
             <div>
               <SectionHeader icon={<Search className="w-5 h-5 text-primary" />} title="Trending Anime" subtitle="Top picks this season" />
               {trendingLoading ? (
@@ -637,7 +643,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {trendingAnime.map((anime: any) => <AnimeCard key={anime.malId} anime={anime} layout="trending" />)}
+                  {trendingAnime.map((anime: any) => <AnimeCard key={anime.malId} anime={anime} layout="trending" showSubBadge showDubBadge />)}
                 </div>
               )}
             </div>
