@@ -553,9 +553,8 @@ export default function WatchPage() {
                     src={currentEmbedUrl}
                     className="w-full h-full"
                     allowFullScreen
-                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                    referrerPolicy="no-referrer"
-                    sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-top-navigation allow-popups"
+                    allow="autoplay; fullscreen"
+                    frameBorder="0"
                     title={`${anime?.title || "Anime"} Episode ${selectedEp}`}
                   />
                 )}
