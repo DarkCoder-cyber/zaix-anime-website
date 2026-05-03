@@ -22,7 +22,8 @@ import { AuthModal } from "@/components/auth-modal";
 import { GlobalUI } from "@/components/global-ui";
 import { GlobalAlertBanner } from "@/components/global-alert-banner";
 import { isMaintenanceActive, isAdminAuthenticated } from "@/hooks/use-admin";
-import { useEffect, useState } from "react";
+import { SplashScreen } from "@/components/splash-screen";
+import { useEffect, useState, useCallback } from "react";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } } });
 
@@ -167,10 +168,24 @@ function AppShell() {
 }
 
 function App() {
+  // Show splash on first visit in this session, or always when launched as standalone PWA
+  const isPWA = typeof window !== "undefined" &&
+    (window.matchMedia("(display-mode: standalone)").matches ||
+     (window.navigator as any).standalone === true);
+  const [showSplash, setShowSplash] = useState(() => {
+    if (isPWA) return true;
+    const seen = sessionStorage.getItem("zaix_splash_seen");
+    if (seen) return false;
+    sessionStorage.setItem("zaix_splash_seen", "1");
+    return true;
+  });
+  const handleSplashDone = useCallback(() => setShowSplash(false), []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
+          {showSplash && <SplashScreen onDone={handleSplashDone} />}
           <AppShell />
           <Toaster />
           <SonnerToaster
