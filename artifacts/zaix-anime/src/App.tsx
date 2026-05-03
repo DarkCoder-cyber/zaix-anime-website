@@ -26,6 +26,7 @@ import { GlobalUI } from "@/components/global-ui";
 import { GlobalAlertBanner } from "@/components/global-alert-banner";
 import { isMaintenanceActive, isAdminAuthenticated } from "@/hooks/use-admin";
 import { SplashScreen } from "@/components/splash-screen";
+import { GlobalErrorBoundary } from "@/components/error-boundary";
 import { useEffect, useState, useCallback } from "react";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } } });
@@ -188,22 +189,24 @@ function App() {
   const handleSplashDone = useCallback(() => setShowSplash(false), []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          {showSplash && <SplashScreen onDone={handleSplashDone} />}
-          <AppShell />
-          <Toaster />
-          <SonnerToaster
-            position="bottom-right"
-            theme="dark"
-            toastOptions={{
-              style: { background: "rgba(0,0,0,0.95)", border: "1px solid rgba(168,85,247,0.3)", color: "#fff", backdropFilter: "blur(12px)" },
-            }}
-          />
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            {showSplash && <SplashScreen onDone={handleSplashDone} />}
+            <AppShell />
+            <Toaster />
+            <SonnerToaster
+              position="bottom-right"
+              theme="dark"
+              toastOptions={{
+                style: { background: "rgba(0,0,0,0.95)", border: "1px solid rgba(168,85,247,0.3)", color: "#fff", backdropFilter: "blur(12px)" },
+              }}
+            />
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }
 
