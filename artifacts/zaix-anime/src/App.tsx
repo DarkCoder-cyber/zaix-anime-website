@@ -19,6 +19,7 @@ import DmcaPage from "@/pages/dmca";
 import ContactPage from "@/pages/contact";
 import MoviesPage from "@/pages/movies";
 import MovieWatchPage from "@/pages/movie-watch";
+import AnimeBrowsePage from "@/pages/anime";
 import { Navbar } from "@/components/navbar";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
@@ -69,6 +70,7 @@ function Router() {
       <Route path="/contact" component={ContactPage} />
       <Route path="/movies" component={MoviesPage} />
       <Route path="/movies/:id" component={MovieWatchPage} />
+      <Route path="/anime" component={AnimeBrowsePage} />
       <Route path="/categories" component={Home} />
       <Route path="/trending" component={Home} />
       <Route component={NotFound} />

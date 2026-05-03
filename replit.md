@@ -36,6 +36,41 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - DB push: `cd lib/db && pnpm run push-force`
 - Admin usernames accepted: `zaix` and `adminzaik` (password: `darkdevil_300`)
 
+## ZAIX Movie & Anime Automation Features
+
+### Daily TMDB Cron Job
+- File: `artifacts/api-server/src/utils/tmdb-sync.ts`
+- Runs 10s after server boot, then every 24 hours
+- Fetches 5 pages each of Bollywood (Hindi), Tamil, Telugu movies from TMDB
+- Upserts into `movies` table (skip-if-exists by tmdbId)
+- On first boot: inserted 282 movies automatically
+
+### TMDB Movie Endpoints (Live, no DB required)
+- `GET /api/movies/tmdb/trending` — 20 trending movies (Bollywood + South + Hollywood mix)
+- `GET /api/movies/tmdb/bollywood?page=N` — 56 pages of Hindi movies
+- `GET /api/movies/tmdb/south?page=N` — Tamil + Telugu interleaved, 34+ pages
+- `GET /api/movies/tmdb/search?q=Pushpa&genre=Bollywood&page=N` — full-text + genre search
+- `GET /api/movies/tmdb/:tmdbId` — single movie metadata
+- `GET /api/movies/stream/:tmdbId` — 6 embed providers (VidSrc Pro, VidSrc, 2embed, AutoEmbed, VidSrc.me, EmbedSu)
+
+### Anime Endpoints (Jikan/MAL)
+- `GET /api/anime/trending?page=N` — top anime by popularity (paginated, hasNextPage)
+- `GET /api/anime/search?q=Attack&genre=Action&page=N` — full-text + genre search
+- `GET /api/anime/recent?page=N` — currently airing anime
+
+### Frontend Pages
+- `/movies` — cinematic hero carousel + debounced search (300ms) + genre tabs + infinite scroll (IntersectionObserver)
+- `/anime` — same professional UI as movies, powered by Jikan API
+- `/movies/:tmdbId` — watch page with 6-source EmbedPlayer with auto-fallback
+- `/watch/:malId` — anime watch page with multi-provider iframe player
+
+### Error Prevention
+- All fetch calls use `retry: 2` in React Query
+- Friendly `ErrorState` component with "Try Again" button on every data section
+- `GlobalErrorBoundary` wraps entire app — catches any React crash
+- `ErrorBoundary` wraps each page locally
+- Backend returns 500 JSON (not crashes) if TMDB/Jikan is down
+
 ## Artifacts
 
 ### Zaix Anime (`artifacts/zaix-anime`)

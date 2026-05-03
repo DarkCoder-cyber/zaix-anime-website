@@ -35,4 +35,7 @@ app.use("/api", router);
 // Schedule weekly XP reset (checks on startup + every hour)
 scheduleWeeklyReset();
 
+// Schedule daily TMDB movie sync (runs 10s after boot, then every 24h)
+import("./utils/tmdb-sync").then(({ scheduleTmdbSync }) => scheduleTmdbSync()).catch(() => {});
+
 export default app;

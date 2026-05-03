@@ -251,8 +251,8 @@ router.get("/anime/genres", (_req: Request, res: Response) => {
 router.get("/anime/trending", async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page || "1")));
-    const limit = Math.min(25, parseInt(String(req.query.limit || "16")));
-    const data = await jikanFetch(`/top/anime?filter=airing&page=${page}&limit=${limit}`);
+    const limit = Math.min(25, parseInt(String(req.query.limit || "20")));
+    const data = await jikanFetch(`/top/anime?filter=bypopularity&page=${page}&limit=${limit}`);
     res.json({
       data: (data.data ?? []).map(mapAnimeCard),
       pagination: {

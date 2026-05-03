@@ -132,6 +132,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: "Home", icon: null },
+    { href: "/anime", label: "Anime", icon: null },
     { href: "/movies", label: "Movies", icon: Clapperboard },
     { href: "/categories", label: "Categories", icon: null },
     { href: "/trending", label: "Trending", icon: null },
