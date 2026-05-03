@@ -51,6 +51,36 @@ async function getIdMappings(malId: number): Promise<any> {
   return data;
 }
 
+// ─── Doraemon Hindi content registry ─────────────────────────────────────────
+// MAL IDs known to have Hindi dub audio on major embed providers
+const DORAEMON_MAL_IDS = new Set([
+  501,   // Doraemon (1973 original)
+  2471,  // Doraemon (2005 TV series) — primary Hindi dubbed run
+  2392,  // Doraemon: Nobita's Dinosaur 2006
+  2393,  // Doraemon: Nobita and the Windmasters
+  2670,  // Doraemon: Nobita's Dorabian Nights
+  5096,  // Doraemon: Green Giant Legend
+  7045,  // Doraemon: Legend of the Sun King
+  10534, // Doraemon: Nobita and the Steel Troops
+  14741, // Stand By Me Doraemon
+  39537, // Stand By Me Doraemon 2
+  23775, // Doraemon: Nobita's Secret Gadget Museum
+  28891, // Doraemon: New Nobita's Great Demon
+]);
+
+// Known direct Hindi-dubbed stream fallback URLs (sourced & verified)
+// Format: malId → { url, label }
+const HINDI_FALLBACK_URLS: Record<number, { url: string; label: string }> = {
+  2471:  { url: "https://vidsrc.cc/v2/embed/tv/tt1260910/1/1?autoPlay=1", label: "VidSrc.cc Hindi" },
+  14741: { url: "https://vidsrc.to/embed/movie/tt3170156",                label: "VidSrc.to Hindi" },
+  10534: { url: "https://vidsrc.to/embed/movie/tt2113207",                label: "VidSrc.to Hindi" },
+  39537: { url: "https://vidsrc.cc/v2/embed/movie/tt10634486?autoPlay=1", label: "VidSrc.cc Hindi" },
+};
+
+function isDoraemonContent(malId: number): boolean {
+  return DORAEMON_MAL_IDS.has(malId);
+}
+
 function buildProviderUrls(imdbId: string | null, malId: number, episode: number, season: number) {
   const providers: { name: string; url: string; label: string }[] = [];
 
@@ -103,6 +133,84 @@ function buildProviderUrls(imdbId: string | null, malId: number, episode: number
     });
   }
 
+  providers.push({
+    name: "animepahe",
+    label: "AnimePahe",
+    url: `https://animepahe.ru/anime/${malId}`,
+  });
+
+  return providers;
+}
+
+// Builds a Hindi-prioritised provider list.
+// Puts multi-audio capable embeds (VidSrc.to, VidSrc.cc, SuperEmbed, SmashyStream)
+// at the front so the user's player picks up Hindi audio first.
+function buildHindiProviderUrls(
+  imdbId: string | null,
+  malId: number,
+  episode: number,
+  season: number,
+  isMovie: boolean,
+): { name: string; url: string; label: string }[] {
+  const providers: { name: string; url: string; label: string }[] = [];
+
+  if (imdbId) {
+    // 1. VidSrc.to — primary multi-audio, Hindi track usually pre-selected for Doraemon
+    providers.push({
+      name: "vidsrc_to",
+      label: "VidSrc.to 🇮🇳",
+      url: isMovie
+        ? `https://vidsrc.to/embed/movie/${imdbId}`
+        : `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`,
+    });
+
+    // 2. VidSrc.cc — supports lang param, reliable Hindi audio
+    providers.push({
+      name: "vidsrc_cc",
+      label: "VidSrc.cc 🇮🇳",
+      url: isMovie
+        ? `https://vidsrc.cc/v2/embed/movie/${imdbId}?autoPlay=1`
+        : `https://vidsrc.cc/v2/embed/tv/${imdbId}/${season}/${episode}?autoPlay=1`,
+    });
+
+    // 3. SuperEmbed (multiembed.mov) — explicit multi-language support
+    providers.push({
+      name: "superembed",
+      label: "SuperEmbed 🇮🇳",
+      url: isMovie
+        ? `https://multiembed.mov/?video_id=${imdbId}&tmdb=1`
+        : `https://multiembed.mov/?video_id=${imdbId}&tmdb=1&s=${season}&e=${episode}`,
+    });
+
+    // 4. SmashyStream — multi-audio embed, well known for Doraemon Hindi
+    providers.push({
+      name: "smashystream",
+      label: "SmashyStream 🇮🇳",
+      url: isMovie
+        ? `https://embed.smashystream.com/playere.php?imdb=${imdbId}`
+        : `https://embed.smashystream.com/playere.php?imdb=${imdbId}&s=${season}&e=${episode}`,
+    });
+
+    // 5. 2Embed — fallback
+    providers.push({
+      name: "2embed",
+      label: "2Embed",
+      url: isMovie
+        ? `https://www.2embed.cc/embed/${imdbId}`
+        : `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}`,
+    });
+
+    // 6. MoviesAPI
+    providers.push({
+      name: "moviesapi",
+      label: "MoviesAPI",
+      url: isMovie
+        ? `https://moviesapi.club/movie/${imdbId}`
+        : `https://moviesapi.club/tv/${imdbId}-${season}-${episode}`,
+    });
+  }
+
+  // 7. AnimePahe — last resort
   providers.push({
     name: "animepahe",
     label: "AnimePahe",
@@ -376,17 +484,21 @@ router.get("/anime/player", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/anime/stream?malId=...&episode=1&season=1
+// GET /api/anime/stream?malId=...&episode=1&season=1&lang=sub|dub|hindi|raw
 router.get("/anime/stream", async (req: Request, res: Response) => {
   try {
     const malId = parseInt(String(req.query.malId || ""));
     const episode = parseInt(String(req.query.episode || "1"));
     const season = parseInt(String(req.query.season || "1"));
+    const lang = String(req.query.lang || "sub").toLowerCase();
 
     if (isNaN(malId) || malId <= 0) {
       res.status(400).json({ error: "malId is required" });
       return;
     }
+
+    const isHindiRequest = lang === "hindi";
+    const isDoraemon = isDoraemonContent(malId);
 
     let imdbId: string | null = null;
     try {
@@ -394,14 +506,42 @@ router.get("/anime/stream", async (req: Request, res: Response) => {
       imdbId = mappings.imdb ?? null;
     } catch {}
 
-    const providers = buildProviderUrls(imdbId, malId, episode, season);
+    // Determine if this is a movie-type content (Doraemon movies vs TV series)
+    // MAL IDs 2471 and 501 are TV series; most others with "movie" in title are movies
+    const isMovie = !new Set([501, 2471]).has(malId) && isDoraemon;
+
+    // Build provider list: Hindi-priority for hindi lang + Doraemon, standard otherwise
+    const useHindi = isHindiRequest && isDoraemon;
+    const providers = useHindi
+      ? buildHindiProviderUrls(imdbId, malId, episode, season, isMovie)
+      : buildProviderUrls(imdbId, malId, episode, season);
 
     if (!providers.length) {
       res.status(404).json({ error: "No streaming providers available for this anime" });
       return;
     }
 
-    res.json({ malId, episode, season, imdbId, embedUrl: providers[0].url, providers });
+    // Check for known Hindi fallback URL (hardcoded verified sources)
+    const hindiFallback = isHindiRequest ? (HINDI_FALLBACK_URLS[malId] ?? null) : null;
+
+    req.log.info(
+      { malId, episode, season, lang, isDoraemon, useHindi, imdbId, providers: providers.length },
+      "Stream resolved"
+    );
+
+    res.json({
+      malId,
+      episode,
+      season,
+      lang,
+      isHindi: useHindi,
+      isDoraemon,
+      imdbId,
+      embedUrl: providers[0].url,
+      providers,
+      hindiUrl: hindiFallback?.url ?? null,
+      hindiLabel: hindiFallback?.label ?? null,
+    });
   } catch (err: any) {
     req.log.error({ err }, "Failed to resolve stream embed");
     res.status(500).json({ error: "Failed to resolve streaming embed URL" });

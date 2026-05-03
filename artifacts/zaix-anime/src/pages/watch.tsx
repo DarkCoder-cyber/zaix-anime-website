@@ -32,6 +32,11 @@ interface StreamProvider { name: string; label: string; url: string; }
 interface StreamData {
   malId: number; episode: number; season: number;
   imdbId: string | null; embedUrl: string; providers: StreamProvider[];
+  lang?: string;
+  isHindi?: boolean;
+  isDoraemon?: boolean;
+  hindiUrl?: string | null;
+  hindiLabel?: string | null;
 }
 
 interface SeasonEntry {
@@ -473,13 +478,18 @@ export default function WatchPage() {
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
+  // Ref so fetchStream always reads the latest langFilter without being in deps
+  const langFilterRef = useRef<LangFilter>("sub");
+  useEffect(() => { langFilterRef.current = langFilter; }, [langFilter]);
+
   const fetchStream = useCallback(async (epNumber: number) => {
     setStreamLoading(true);
     setStreamError(null);
     clearAutoPlayTimer();
     clearFailoverTimer();
+    const lang = langFilterRef.current;
     try {
-      const res = await fetch(`/api/anime/stream?malId=${malId}&episode=${epNumber}&season=1`);
+      const res = await fetch(`/api/anime/stream?malId=${malId}&episode=${epNumber}&season=1&lang=${lang}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to load stream" }));
         throw new Error(err.error || "Failed to load stream");
@@ -493,7 +503,7 @@ export default function WatchPage() {
       startPlayerTimer();
       if (autoPlay) {
         const nextEpNumber = epNumber + 1;
-        const hasNext = episodes.some(e => e.number === nextEpNumber);
+        const hasNext = episodes.some((e: any) => e.number === nextEpNumber);
         if (hasNext) startAutoPlayCountdown(nextEpNumber, fetchStream);
       }
     } catch (err: any) {
@@ -555,8 +565,51 @@ export default function WatchPage() {
     if (isDoraemon) setLangFilter("hindi");
   }, [isDoraemon]);
 
+  // When user switches language AND a stream is already loaded, re-fetch with the new lang
+  const prevLangRef = useRef<LangFilter>("sub");
+  useEffect(() => {
+    if (prevLangRef.current !== langFilter && streamData) {
+      prevLangRef.current = langFilter;
+      fetchStream(selectedEp);
+    } else {
+      prevLangRef.current = langFilter;
+    }
+  }, [langFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const currentProvider = streamData?.providers?.find(p => p.name === activeProvider) ?? streamData?.providers?.[0] ?? null;
-  const currentEmbedUrl = currentProvider?.url ?? null;
+  // If a verified Hindi fallback URL exists and Hindi is selected, use it as primary embed
+  const currentEmbedUrl = (langFilter === "hindi" && streamData?.hindiUrl)
+    ? streamData.hindiUrl
+    : (currentProvider?.url ?? null);
+
+  // ── Debug logging: emitted to console whenever the stream/provider changes ──
+  useEffect(() => {
+    if (!streamData) return;
+    const audioTrack =
+      langFilter === "hindi" ? "hi-IN (Hindi Dub)" :
+      langFilter === "dub"   ? "en-US (English Dub)" :
+      langFilter === "raw"   ? "ja-JP (Raw/Untouched)" :
+                               "ja-JP + subs (Sub)";
+    console.log(
+      "%c[ZAIX STREAM DEBUG]",
+      "color: #00bfff; font-weight: bold; font-size: 13px",
+      {
+        anime:          (anime as any)?.title ?? "Unknown",
+        episode:        streamData.episode,
+        imdbId:         streamData.imdbId,
+        malId:          streamData.malId,
+        lang:           streamData.lang,
+        isHindi:        streamData.isHindi,
+        isDoraemon:     streamData.isDoraemon,
+        audioTrackRequested: audioTrack,
+        activeProvider: currentProvider?.name ?? "none",
+        providerLabel:  currentProvider?.label ?? "—",
+        embedUrl:       currentEmbedUrl ?? "none",
+        hindiUrl:       streamData.hindiUrl ?? "none",
+        allProviders:   streamData.providers?.map(p => p.name),
+      }
+    );
+  }, [streamData, currentProvider, langFilter]); // eslint-disable-line react-hooks/exhaustive-deps
   const directLink = typeof window !== "undefined" ? `${window.location.origin}/watch/${malId}` : `/watch/${malId}`;
   const nextEpNumber = selectedEp + 1;
   const hasNextEp = episodes.some(e => e.number === nextEpNumber);
@@ -651,7 +704,7 @@ export default function WatchPage() {
                     src={currentEmbedUrl}
                     className="w-full h-full"
                     allowFullScreen
-                    allow="autoplay; fullscreen"
+                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                     frameBorder="0"
                     title={`${anime?.title || "Anime"} Episode ${selectedEp}`}
                   />
