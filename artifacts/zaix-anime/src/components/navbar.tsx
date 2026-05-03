@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Menu, Search, User, LogOut, ChevronDown, X, Star, BookOpen, PlayCircle, SlidersHorizontal } from "lucide-react";
+import { Menu, Search, User, LogOut, ChevronDown, X, Star, BookOpen, PlayCircle, SlidersHorizontal, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -131,12 +131,13 @@ export function Navbar() {
   const clearFilters = () => { setGenreFilter(""); setYearFilter(""); setSortFilter(""); setMinScoreFilter(""); };
 
   const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/categories", label: "Categories" },
-    { href: "/trending", label: "Trending" },
-    { href: "/leaderboard", label: "Leaderboard" },
-    { href: "/schedule", label: "Schedule" },
-    { href: "/watch-party", label: "Watch Party" },
+    { href: "/", label: "Home", icon: null },
+    { href: "/movies", label: "Movies", icon: Clapperboard },
+    { href: "/categories", label: "Categories", icon: null },
+    { href: "/trending", label: "Trending", icon: null },
+    { href: "/leaderboard", label: "Leaderboard", icon: null },
+    { href: "/schedule", label: "Schedule", icon: null },
+    { href: "/watch-party", label: "Watch Party", icon: null },
   ];
 
   const searchTypeTabs: { key: SearchType; label: string }[] = [
@@ -162,8 +163,9 @@ export function Navbar() {
             <nav className="hidden md:flex items-center gap-6">
               {navLinks.map((link) => (
                 <Link key={link.href} href={link.href}
-                  className={`text-sm font-medium transition-colors hover:text-primary relative group ${location === link.href ? "text-primary" : "text-foreground/80"}`}
+                  className={`text-sm font-medium transition-colors hover:text-primary relative group flex items-center gap-1.5 ${location === link.href ? "text-primary" : "text-foreground/80"}`}
                   data-testid={`link-nav-${link.label.toLowerCase()}`}>
+                  {link.icon && <link.icon className="w-3.5 h-3.5 shrink-0" />}
                   {link.label}
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full shadow-neon" />
                 </Link>
@@ -425,7 +427,8 @@ export function Navbar() {
               <SheetContent side="right" className="bg-card/95 backdrop-blur-xl border-primary/20">
                 <nav className="flex flex-col gap-6 mt-8">
                   {navLinks.map((link) => (
-                    <Link key={link.href} href={link.href} className="text-lg font-medium hover:text-primary transition-colors" data-testid={`link-mobile-${link.label.toLowerCase()}`}>
+                    <Link key={link.href} href={link.href} className="flex items-center gap-2.5 text-lg font-medium hover:text-primary transition-colors" data-testid={`link-mobile-${link.label.toLowerCase()}`}>
+                      {link.icon && <link.icon className="w-5 h-5 shrink-0" />}
                       {link.label}
                     </Link>
                   ))}
