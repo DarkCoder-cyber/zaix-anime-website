@@ -60,8 +60,20 @@ uri = "file://artifacts/zaix-anime/src/assets/chainsaw-man.png"
 type = "image"
 title = "chainsaw man poster"
 
+[[generated]]
+id = "ove6LbE9XnDxNx9n8Pw23"
+uri = "file://artifacts/zaix-anime/src/assets/hero-mashup.png"
+type = "image"
+title = "anime mashup hero wallpaper"
+
 [[outputs]]
 id = "a1zQ4pwkJjMoxstj_fDMJ"
 uri = "file://artifacts/zaix-anime/src/assets/hero-mashup.jpg"
 type = "image"
 title = "anime collage wallpaper with luffy goku naruto solo leveling"
+
+[[outputs]]
+id = "ennAh-cl5v-BR-YPDFVom"
+uri = "file://artifacts/zaix-anime/src/assets/hero-mashup.png"
+type = "image"
+title = "AI-Generated Anime Mashup Hero Wallpaper"

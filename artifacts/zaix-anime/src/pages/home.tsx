@@ -7,7 +7,7 @@ import { useGetTrendingAnime, useGetRecentAnime, getGetTrendingAnimeQueryKey, ge
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { Search, History, Sparkles, BookOpen, Users, Heart, Play, ExternalLink, ChevronDown, X } from "lucide-react";
-import heroBg from "@/assets/hero-mashup.jpg";
+import heroBg from "@/assets/hero-mashup.png";
 import { useRecentlyVisited, useWatchProgress } from "@/hooks/use-local-store";
 import { cachedFetchJson } from "@/hooks/api-cache";
 import { useAuth } from "@/hooks/use-auth";
