@@ -29,6 +29,7 @@ export interface UserProfile {
   id: number;
   username: string;
   email: string;
+  totalXp: number;
   createdAt: string;
 }
 

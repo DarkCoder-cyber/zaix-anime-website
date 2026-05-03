@@ -43,12 +43,22 @@ export function AuthModal() {
     defaultValues: { username: "", email: "", password: "", confirmPassword: "" },
   });
 
+  const extractMessage = (error: any, fallback: string): string => {
+    if (error?.data?.error) return error.data.error;
+    if (typeof error?.data === "string" && error.data.trim()) return error.data;
+    if (error?.message && !error.message.startsWith("HTTP ")) return error.message;
+    if (error?.status === 409) return "An account with this email already exists.";
+    if (error?.status === 400) return "Please check your details and try again.";
+    if (error?.status === 401) return "Invalid email or password.";
+    if (error?.status === 0 || error?.name === "TypeError") return "Cannot reach the server. Please try again.";
+    return fallback;
+  };
+
   const onLogin = async (data: z.infer<typeof LoginBody>) => {
     try {
       await login({ data });
     } catch (error: any) {
-      const message = error?.data?.error || "Failed to login. Please check your credentials.";
-      loginForm.setError("root", { message });
+      loginForm.setError("root", { message: extractMessage(error, "Failed to login. Please check your credentials.") });
     }
   };
 
@@ -57,8 +67,7 @@ export function AuthModal() {
       const { confirmPassword, ...registerData } = data;
       await register({ data: registerData });
     } catch (error: any) {
-      const message = error?.data?.error || "Failed to create account.";
-      registerForm.setError("root", { message });
+      registerForm.setError("root", { message: extractMessage(error, "Failed to create account. Please try again.") });
     }
   };
 

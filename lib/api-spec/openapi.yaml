@@ -303,10 +303,13 @@ components:
           type: string
         email:
           type: string
+        totalXp:
+          type: integer
+          default: 0
         createdAt:
           type: string
           format: date-time
-      required: [id, username, email, createdAt]
+      required: [id, username, email, totalXp, createdAt]
     AuthResponse:
       type: object
       properties:

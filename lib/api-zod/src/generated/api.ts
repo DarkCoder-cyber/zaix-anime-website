@@ -39,11 +39,14 @@ export const LoginBody = zod.object({
   password: zod.string(),
 });
 
+export const loginResponseUserTotalXpDefault = 0;
+
 export const LoginResponse = zod.object({
   user: zod.object({
     id: zod.number(),
     username: zod.string(),
     email: zod.string(),
+    totalXp: zod.number().default(loginResponseUserTotalXpDefault),
     createdAt: zod.coerce.date(),
   }),
   token: zod.string(),
@@ -59,10 +62,13 @@ export const LogoutResponse = zod.object({
 /**
  * @summary Get current user
  */
+export const getMeResponseTotalXpDefault = 0;
+
 export const GetMeResponse = zod.object({
   id: zod.number(),
   username: zod.string(),
   email: zod.string(),
+  totalXp: zod.number().default(getMeResponseTotalXpDefault),
   createdAt: zod.coerce.date(),
 });
 
