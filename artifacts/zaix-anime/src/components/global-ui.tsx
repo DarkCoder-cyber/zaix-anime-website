@@ -60,7 +60,7 @@ function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose
             {cat.label}
           </button>
         ))}
-        <button onClick={onClose} className="px-2 text-muted-foreground hover:text-white transition-colors">
+        <button onClick={onClose} className="px-2 text-[#b3b3b3] hover:text-white transition-colors">
           <X className="w-3 h-3" />
         </button>
       </div>
@@ -278,13 +278,13 @@ function LiveChatBubble() {
               Live Chat
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#a855f7", boxShadow: "0 0 5px #a855f7" }} />
             </div>
-            <button className="text-muted-foreground hover:text-white text-lg leading-none" onClick={() => setOpen(false)}>×</button>
+            <button className="text-[#b3b3b3] hover:text-white text-lg leading-none" onClick={() => setOpen(false)}>×</button>
           </div>
 
           {/* Messages */}
           <div className="h-64 overflow-y-auto p-3 space-y-2 text-sm" style={{ scrollbarWidth: "none" }}>
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground text-xs">No messages yet. Say hello! 👋</div>
+              <div className="flex items-center justify-center h-full text-[#b3b3b3] text-xs">No messages yet. Say hello! 👋</div>
             ) : messages.map((m) => (
               <ChatMessageRow key={m.id} m={m} myName={myName} onReact={handleReact} />
             ))}

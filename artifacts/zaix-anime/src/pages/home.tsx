@@ -6,7 +6,6 @@ import { MangaCard } from "@/components/manga-card";
 import { useGetTrendingAnime, useGetRecentAnime, getGetTrendingAnimeQueryKey, getGetRecentAnimeQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import heroBg from "@/assets/hero-bg.png";
 import { Search, History, Sparkles, BookOpen, Users, Heart, Play, ExternalLink, ChevronDown, X } from "lucide-react";
 import { useRecentlyVisited, useWatchProgress } from "@/hooks/use-local-store";
 import { cachedFetchJson } from "@/hooks/api-cache";
@@ -257,20 +256,20 @@ export default function Home() {
       }));
 
   return (
-    <main className="min-h-screen bg-background pb-20">
+    <main className="min-h-screen bg-background pb-20 text-[#b3b3b3]">
       {/* Hero — full-screen with parallax */}
       <section className="relative w-full flex items-center justify-center overflow-hidden" style={{ height: "100svh", minHeight: 600 }}>
         {/* Parallax background */}
         <div
           ref={heroBgRef}
-          className="absolute inset-0 z-0"
+          className="absolute inset-0 z-0 flex items-center justify-center"
           style={{ top: "-15%", bottom: "-15%", left: 0, right: 0, willChange: "transform", transform: "translateZ(0)" }}
         >
           <img
-            src={heroBg}
-            alt="Hero"
-            className="w-full h-full object-cover"
-            style={{ objectPosition: "center top" }}
+            src="https://images.unsplash.com/photo-1512364563001-263b4c1e4d1e?auto=format&fit=crop&w=2400&q=80"
+            alt="Top anime mashup wallpaper"
+            className="w-full h-full object-cover object-center"
+            style={{ objectPosition: "center center" }}
             decoding="async"
             fetchPriority="high"
           />
@@ -278,19 +277,19 @@ export default function Home() {
 
         {/* Layered gradient overlays */}
         <div className="absolute inset-0 z-[1]" style={{
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 35%, rgba(5,0,15,0.70) 65%, rgba(10,0,26,0.98) 100%)"
+          background: "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.9) 100%)"
         }} />
         {/* Subtle side vignette so edges feel cinematic */}
         <div className="absolute inset-0 z-[2]" style={{
-          background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.45) 100%)"
+          background: "radial-gradient(ellipse at center, transparent 35%, rgba(42,0,77,0.2) 100%)"
         }} />
 
         {/* Hero content */}
         <div className="container mx-auto px-4 z-10 text-center flex flex-col items-center gap-0">
-          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black font-heading text-white tracking-tight mb-4 text-shadow-neon leading-none">
+          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black font-heading text-white tracking-tight mb-4 leading-none">
             ZAIX <span className="text-primary">ANIME</span>
           </h1>
-          <p className="text-lg sm:text-xl md:text-2xl text-foreground/85 font-medium mb-6 max-w-xl text-shadow-neon">
+          <p className="text-lg sm:text-xl md:text-2xl text-[#b3b3b3] font-medium mb-6 max-w-xl">
             Stream Anime. Read Manga. Discover Manhwa.
           </p>
 
@@ -399,7 +398,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-center w-full max-w-sm sm:max-w-md">
             <Button
               size="lg"
-              className="w-full sm:w-auto bg-primary text-black hover:bg-primary/90 shadow-neon font-bold text-base h-13 px-8"
+              className="w-full sm:w-auto bg-primary text-black hover:bg-primary/90 shadow-neon font-bold text-base h-13 px-8" style={{ filter: "drop-shadow(0 0 8px #a855f7)", boxShadow: "0 0 15px rgba(168, 85, 247, 0.4)" }}
               onClick={() => setActiveTab("anime")}
             >
               Browse Anime
@@ -407,13 +406,13 @@ export default function Home() {
             <Button
               size="lg"
               variant="outline"
-              className="w-full sm:w-auto border-primary/50 text-white hover:bg-primary/10 hover:text-primary backdrop-blur-sm h-13 px-8"
+              className="w-full sm:w-auto border-primary/50 text-white hover:bg-primary/10 hover:text-primary backdrop-blur-sm h-13 px-8" style={{ filter: "drop-shadow(0 0 8px #a855f7)", boxShadow: "0 0 15px rgba(168, 85, 247, 0.4)" }}
               onClick={() => setActiveTab("manga")}
             >
               Read Manga
             </Button>
           </div>
-          <div className="mt-6 flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-primary/25 bg-black/50 backdrop-blur-md shadow-neon">
+          <div className="mt-6 flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-primary/25 bg-black/50 backdrop-blur-md shadow-neon" style={{ filter: "drop-shadow(0 0 8px #a855f7)", boxShadow: "0 0 15px rgba(168, 85, 247, 0.4)" }}>
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: "0 0 6px #a855f7" }} />
             <Users className="w-3.5 h-3.5 text-primary" />
             <span className="text-sm font-bold text-white">{liveUsers.toLocaleString()}</span>

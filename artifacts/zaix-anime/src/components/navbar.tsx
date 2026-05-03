@@ -182,13 +182,13 @@ export function Navbar() {
               ) : (
                 <div className="flex items-center animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="relative w-48 sm:w-64 md:w-80">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#b3b3b3]" />
                     <Input autoFocus
                       placeholder={`Search ${searchType === "all" ? "anime, manga..." : searchType + "..."}`}
                       className="pl-9 pr-9 bg-black/60 border-primary/50 focus-visible:ring-primary/50 text-white"
                       value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                       data-testid="input-search" />
-                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-white" onClick={closeSearch}>
+                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-[#b3b3b3] hover:text-white" onClick={closeSearch}>
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
@@ -202,7 +202,7 @@ export function Navbar() {
                   <div className="flex border-b border-primary/10 px-2 pt-2 gap-1">
                     {searchTypeTabs.map((t) => (
                       <button key={t.key} onClick={() => setSearchType(t.key)}
-                        className={`px-3 py-1.5 rounded-t-lg text-xs font-semibold transition-colors ${searchType === t.key ? "bg-primary/15 text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-white"}`}>
+                        className={`px-3 py-1.5 rounded-t-lg text-xs font-semibold transition-colors ${searchType === t.key ? "bg-primary/15 text-primary border-b-2 border-primary" : "text-[#b3b3b3] hover:text-white"}`}>
                         {t.label}
                       </button>
                     ))}
@@ -211,17 +211,17 @@ export function Navbar() {
                   {/* Language + filter toggle row */}
                   {(searchType === "all" || searchType === "anime") && (
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-primary/10 bg-black/30 flex-wrap">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest mr-0.5 shrink-0">Lang:</span>
+                      <span className="text-[10px] text-[#b3b3b3] uppercase tracking-widest mr-0.5 shrink-0">Lang:</span>
                       {LANG_TABS.map((l) => (
                         <button key={l.key} onClick={() => setLangFilter(l.key)}
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${langFilter === l.key ? "bg-primary/20 text-primary border-primary/50 shadow-neon" : "border-border text-muted-foreground hover:text-white hover:border-white/30"}`}>
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${langFilter === l.key ? "bg-primary/20 text-primary border-primary/50 shadow-neon" : "border-border text-[#b3b3b3] hover:text-white hover:border-white/30"}`}>
                           {l.label}
                         </button>
                       ))}
                       <div className="flex-1" />
                       <button
                         onClick={() => setShowFilters(v => !v)}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${showFilters || hasActiveFilters ? "bg-primary/15 text-primary border-primary/50" : "border-border text-muted-foreground hover:text-white"}`}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${showFilters || hasActiveFilters ? "bg-primary/15 text-primary border-primary/50" : "border-border text-[#b3b3b3] hover:text-white"}`}
                       >
                         <SlidersHorizontal className="w-3 h-3" />
                         Filters{hasActiveFilters ? ` (${[genreFilter, yearFilter, sortFilter, minScoreFilter].filter(Boolean).length})` : ""}
@@ -235,48 +235,48 @@ export function Navbar() {
                       <div className="grid grid-cols-2 gap-2">
                         {/* Genre */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Genre</label>
+                          <label className="text-[10px] font-bold text-[#b3b3b3] uppercase tracking-wider">Genre</label>
                           <div className="relative">
                             <select value={genreFilter} onChange={e => setGenreFilter(e.target.value)}
                               className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs text-white appearance-none focus:outline-none focus:border-primary/60">
                               <option value="">Any Genre</option>
                               {ANIME_GENRES.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#b3b3b3] pointer-events-none" />
                           </div>
                         </div>
                         {/* Year */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Year</label>
+                          <label className="text-[10px] font-bold text-[#b3b3b3] uppercase tracking-wider">Year</label>
                           <div className="relative">
                             <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
                               className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs text-white appearance-none focus:outline-none focus:border-primary/60">
                               {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y || "Any Year"}</option>)}
                             </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#b3b3b3] pointer-events-none" />
                           </div>
                         </div>
                         {/* Sort */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sort By</label>
+                          <label className="text-[10px] font-bold text-[#b3b3b3] uppercase tracking-wider">Sort By</label>
                           <div className="relative">
                             <select value={sortFilter} onChange={e => setSortFilter(e.target.value as SortFilter)}
                               className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs text-white appearance-none focus:outline-none focus:border-primary/60">
                               {SORT_OPTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                             </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#b3b3b3] pointer-events-none" />
                           </div>
                         </div>
                         {/* Min Score */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Min Rating</label>
+                          <label className="text-[10px] font-bold text-[#b3b3b3] uppercase tracking-wider">Min Rating</label>
                           <div className="relative">
                             <select value={minScoreFilter} onChange={e => setMinScoreFilter(e.target.value)}
                               className="w-full bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs text-white appearance-none focus:outline-none focus:border-primary/60">
                               <option value="">Any Score</option>
                               {["9", "8", "7", "6", "5"].map(s => <option key={s} value={s}>{s}+ Stars</option>)}
                             </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#b3b3b3] pointer-events-none" />
                           </div>
                         </div>
                       </div>
@@ -290,14 +290,14 @@ export function Navbar() {
 
                   {/* Results */}
                   {!isQueryActive ? (
-                    <div className="p-4 text-center text-muted-foreground text-sm">Type at least 3 characters to search...</div>
+                    <div className="p-4 text-center text-[#b3b3b3] text-sm">Type at least 3 characters to search...</div>
                   ) : isLoading ? (
-                    <div className="p-6 text-center text-muted-foreground text-sm flex flex-col items-center gap-2">
+                    <div className="p-6 text-center text-[#b3b3b3] text-sm flex flex-col items-center gap-2">
                       <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                       Searching{genreFilter ? ` in ${genreFilter}` : ""}{yearFilter ? ` (${yearFilter})` : ""}…
                     </div>
                   ) : !hasResults ? (
-                    <div className="p-6 text-center text-muted-foreground text-sm">
+                    <div className="p-6 text-center text-[#b3b3b3] text-sm">
                       No results for "{debouncedQuery}"{genreFilter ? ` in ${genreFilter}` : ""}
                     </div>
                   ) : (
@@ -321,7 +321,7 @@ export function Navbar() {
                               <div className="flex flex-col gap-0.5 min-w-0">
                                 <h4 className="text-sm font-bold text-white line-clamp-1">{anime.title}</h4>
                                 <div className="flex items-center gap-2">
-                                  {anime.year && <span className="text-xs text-muted-foreground">{anime.year}</span>}
+                                  {anime.year && <span className="text-xs text-[#b3b3b3]">{anime.year}</span>}
                                   <span className="text-xs text-primary font-medium flex items-center gap-1">
                                     <Star className="w-3 h-3 fill-primary" /> {anime.score?.toFixed(1) || "N/A"}
                                   </span>
@@ -361,7 +361,7 @@ export function Navbar() {
                                   <Badge className={`text-[9px] px-1.5 py-0 h-4 font-semibold ${m.type === "Manhwa" ? "bg-blue-500/20 text-blue-400" : "bg-primary/20 text-primary"}`}>
                                     {m.type ?? "Manga"}
                                   </Badge>
-                                  {m.status && <span className="text-xs text-muted-foreground capitalize">{m.status}</span>}
+                                  {m.status && <span className="text-xs text-[#b3b3b3] capitalize">{m.status}</span>}
                                 </div>
                                 <div className="flex flex-wrap gap-1 mt-0.5">
                                   {m.genres?.slice(0, 2).map((g: string) => (
