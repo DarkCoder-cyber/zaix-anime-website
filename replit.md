@@ -27,8 +27,24 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
 ## Workflows
-- **Start application** (webview, port 5000) — `PORT=5000 BASE_PATH=/ pnpm --filter @workspace/zaix-anime run dev`
-- **Backend API** (console, port 8080) — `PORT=8080 pnpm --filter @workspace/api-server run dev`
+- **artifacts/zaix-anime: web** (artifact, auto-port) — `pnpm --filter @workspace/zaix-anime run dev`
+  - `dev` script now runs `vite preview` (production build, NO Vite dev server/HMR)
+  - Serves built files from `artifacts/zaix-anime/dist/public/`
+  - Replit's artifact router routes all `/*` external traffic here
+- **Backend API** (console, port 8000) — `/nix/store/.../artifact-router`
+  - Starts Express automatically at `artifacts/api-server/dist/index.mjs` on port 8080
+  - Handles all `/api/*` routing externally
+
+## Build Commands
+- **Frontend build**: `pnpm --filter @workspace/zaix-anime run build` → `artifacts/zaix-anime/dist/public/`
+- **Backend build**: `pnpm --filter @workspace/api-server run build` → `artifacts/api-server/dist/index.mjs`
+- After any code change: rebuild the relevant package and restart its workflow
+
+## Port Architecture (Replit)
+- Port 8080: Express API server (managed by artifact router)
+- Port 8000: Artifact router (external `/api/*` → 8080, static registration for `/*`)
+- Port 20145 (auto): Vite preview serving production build (external `/*` routed here by Replit proxy)
+- External public URL routes `/*` → Vite preview, `/api/*` → Express on 8080
 
 ## Important Notes on Server Setup
 - Express `app.listen` must use `"0.0.0.0"` as host to bind IPv4 (Replit port detection is IPv4 only)
