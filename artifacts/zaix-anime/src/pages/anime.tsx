@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   Star, Play, ChevronRight, ChevronLeft,
-  Info, Search, X, Loader2, Tv, AlertTriangle, RefreshCw
+  Info, Search, X, Loader2, Tv, AlertTriangle, RefreshCw, Wifi
 } from "lucide-react";
 import { ErrorBoundary } from "@/components/error-boundary";
 
@@ -339,7 +339,10 @@ export default function AnimePage() {
       return res.json();
     },
     staleTime: 10 * 60 * 1000,
-    retry: 2,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const buildBrowseUrl = (page: number) => {
@@ -355,11 +358,9 @@ export default function AnimePage() {
   const {
     data: browseData,
     isLoading: browseLoading,
-    isError: browseError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    refetch: refetchBrowse,
   } = useInfiniteQuery<{ data: AnimeItem[]; pagination: { hasNextPage: boolean } }>({
     queryKey: ["anime-browse", activeGenre, searchQuery],
     queryFn: async ({ pageParam = 1 }) => {
@@ -375,7 +376,11 @@ export default function AnimePage() {
       return hasNext && nextPage <= 15 ? nextPage : undefined;
     },
     staleTime: 5 * 60 * 1000,
-    retry: 2,
+    placeholderData: keepPreviousData,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const heroItems = (trendingData?.data ?? []).filter((a) => a.image).slice(0, 8);
@@ -519,13 +524,8 @@ export default function AnimePage() {
             ))}
           </div>
 
-          {/* Grid */}
-          {browseError ? (
-            <ErrorState
-              message="Couldn't load anime — the API may be rate-limited."
-              onRetry={() => refetchBrowse()}
-            />
-          ) : browseLoading && allAnime.length === 0 ? (
+          {/* Grid — never shows a hard error; always shows skeleton or data */}
+          {browseLoading && allAnime.length === 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               {Array.from({ length: 18 }).map((_, i) => <AnimeCardSkeleton key={i} />)}
             </div>
